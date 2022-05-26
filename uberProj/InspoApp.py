@@ -20,35 +20,99 @@ server = app.server
 # Plotly mapbox public token
 mapbox_access_token = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A"
 
-# Dictionary of important locations in New York
-list_of_locations = {
-    "Emerging Technology Institute": {"lat": 34.8335, "lon": -79.1825}
-     }
-
-# Initialize data frame
+#Read CSV files
 df1 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data1.csv",
+    "TrafficData_Rand.csv",
     dtype=object,
 )
 df2 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data2.csv",
+    "Time_Location_Rand_People.csv",
     dtype=object,
 )
 df3 = pd.read_csv(
-    "https://raw.githubusercontent.com/plotly/datasets/master/uber-rides-data3.csv",
-    dtype=object,
+    "N-Factor_RandomGenerated .csv"
 )
-df = pd.concat([df1, df2, df3], axis=0)
-df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d %H:%M")
-df.index = df["Date/Time"]
-df.drop("Date/Time", 1, inplace=True)
-totalList = []
-for month in df.groupby(df.index.month):
-    dailyList = []
-    for day in month[1].groupby(month[1].index.day):
-        dailyList.append(day[1])
-    totalList.append(dailyList)
-totalList = np.array(totalList)
+
+#Maximum Date from data
+vehicle_times = list(df1["TIME"])
+person_times = list(df2["TIME"])
+all_times_dates = vehicle_times + person_times #all the times which are in the yyyymmdd-hhmmss format
+all_dates = [] #dates formatted as (yyyy, m, dd)
+all_years = [] #just collects all the years
+all_months = []
+all_hours = []
+all_times = []
+for time in all_times_dates:
+    year = int(time[0:4])
+    month = int(time[4:6])
+    day = int(time[6:8])
+    hour = int(time[9:11])
+    total_time = int(time[9:15])
+    date = (year, month, day)
+    all_dates.append(date)
+    all_years.append(year)
+    all_months.append(month)
+    all_hours.append(hour)
+    all_times.append(total_time)
+    date_time_array = [np.array(all_dates), np.array(all_times)]  # array of dates and times
+def max_date():
+    max_year = max(all_years)
+    max_month = max(all_months) + 1
+    if max_month == 13:
+        max_month = 1
+        max_year = max_year + 1
+    return (max_year, max_month, 1)
+
+#Next we make lists of hours IDs were collected
+PersonIDs = list(df2["PersonID"])
+PlateNumbers = list(df1["PlateNumber"])
+Plates_and_PersonIDs = PlateNumbers + PersonIDs
+## remember all_times_dates = vehicle_times + person_times
+
+#We are going to match all the IDs (person and plate) with the times
+#they were collected
+IDs_and_time_collected = tuple(zip(Plates_and_PersonIDs, all_hours))
+print(IDs_and_time_collected)
+
+# Collecting Unique locations of cameras for both people and vehicles
+Vehicle_Lats = list(df1["LAT"])
+Vehicle_Longs = list(df1["LONG"])
+Vehicle_Lat_Long = tuple(zip(Vehicle_Lats, Vehicle_Longs))
+People_Lats = list(df2["LAT"])
+People_Longs = list(df2["LONG"])
+People_Lat_Long = tuple(zip(People_Lats, People_Longs))
+
+Unique_Vehicle_Locations = list(set(Vehicle_Lat_Long))
+Unique_People_Locations = list(set(People_Lat_Long))
+
+dict_of_people_locations = {}
+dict_of_vehicle_locations = {}
+VehicleLocationID = 0
+PersonLocationID = 0
+
+for n in range(len(Unique_Vehicle_Locations)):
+    VehicleLocationID = 2 * n + 1 #vehicle cam locations IDs only odd numbers
+    latitude = Unique_Vehicle_Locations[n][0]
+    longitude = Unique_Vehicle_Locations[n][1]
+    dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "long": longitude}
+
+for m in range(len(Unique_People_Locations)):
+    PersonLocationID = m * 2 #person cam location IDs only even numbers
+    latitude = Unique_People_Locations[m][0]
+    longitude = Unique_Vehicle_Locations[m][1]
+    dict_of_people_locations[PersonLocationID] = {"lat": latitude, "long": longitude}
+
+# df = pd.concat([df1, df2, df3], axis=0)
+# df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d %H:%M")
+# df.index = df["Date/Time"]
+# df.drop("Date/Time", 1, inplace=True)
+# totalList = []
+# for month in df.groupby(df.index.month):
+#     dailyList = []
+#     for day in month[1].groupby(month[1].index.day):
+#         dailyList.append(day[1])
+#     totalList.append(dailyList)
+# totalList = np.array(totalList)
 
 # Layout of Dash App
 app.layout = html.Div(
@@ -67,20 +131,19 @@ app.layout = html.Div(
                             ),
                             href="https://plotly.com/dash/",
                         ),
-                        html.H2("DASH - UBER DATA APP"),
+                        html.H2("Person and Plate Information"),
                         html.P(
-                            """Select different days using the date picker or by selecting
-                            different time frames on the histogram."""
+                            """Select filters for data"""
                         ),
                         html.Div(
                             className="div-for-dropdown",
                             children=[
                                 dcc.DatePickerSingle(
                                     id="date-picker",
-                                    min_date_allowed=dt(2014, 4, 1),
-                                    max_date_allowed=dt(2014, 9, 30),
-                                    initial_visible_month=dt(2014, 4, 1),
-                                    date=dt(2014, 4, 1).date(),
+                                    min_date_allowed=dt(2022, 5, 23),
+                                    max_date_allowed=max_date(),
+                                    initial_visible_month=dt(2022, 5, 1),
+                                    date=dt(2022, 5, 1).date(),
                                     display_format="MMMM D, YYYY",
                                     style={"border": "0px solid black"},
                                 )
@@ -93,14 +156,28 @@ app.layout = html.Div(
                                 html.Div(
                                     className="div-for-dropdown",
                                     children=[
-                                        # Dropdown for locations on map
+                                        # Dropdown for cameras collecting person data
                                         dcc.Dropdown(
                                             id="location-dropdown",
                                             options=[
                                                 {"label": i, "value": i}
-                                                for i in list_of_locations
+                                                for i in dict_of_people_locations
                                             ],
-                                            placeholder="Select a location",
+                                            placeholder="Location of person camera",
+                                        )
+                                    ],
+                                ),
+                                html.Div(
+                                    className="div-for-dropdown",
+                                    children=[
+                                        # Dropdown for cameras collecting vehicle data
+                                        dcc.Dropdown(
+                                            id="location-dropdown",
+                                            options=[
+                                                {"label": p, "value": p}
+                                                for p in dict_of_vehicle_locations
+                                            ],
+                                            placeholder="Location of vehicle camera",
                                         )
                                     ],
                                 ),
@@ -124,16 +201,9 @@ app.layout = html.Div(
                                 ),
                             ],
                         ),
-                        html.P(id="total-rides"),
-                        html.P(id="total-rides-selection"),
+                        html.P(id="total-detections"),
+                        #html.P(id="total-selection-detections"),
                         html.P(id="date-value"),
-                        dcc.Markdown(
-                            """
-                            Source: [FiveThirtyEight](https://github.com/fivethirtyeight/uber-tlc-foil-response/tree/master/uber-trip-data)
-
-                            Links: [Source Code](https://github.com/plotly/dash-sample-apps/tree/main/apps/dash-uber-rides-demo) | [Enterprise Demo](https://plotly.com/get-demo/)
-                            """
-                        ),
                     ],
                 ),
                 # Column for app graphs and plots
@@ -144,7 +214,7 @@ app.layout = html.Div(
                         html.Div(
                             className="text-padding",
                             children=[
-                                "Select any of the bars on the histogram to section data by time."
+                                "" #can add text between map and histogram
                             ],
                         ),
                         dcc.Graph(id="histogram"),
@@ -156,16 +226,38 @@ app.layout = html.Div(
 )
 
 # Gets the amount of days in the specified month
-# Index represents month (0 is April, 1 is May, ... etc.)
-daysInMonth = [30, 31, 30, 31, 31, 30]
+# Index represents month (0 is Jan, 1 is Feb, ... etc.)
+daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 # Get index for the specified month in the dataframe
-monthIndex = pd.Index(["Apr", "May", "June", "July", "Aug", "Sept"])
+monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
+                       "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
-# Get the amount of rides per hour based on the time selected
-# This also higlights the color of the histogram bars based on
-# if the hours are selected
-def get_selection(month, day, selection):
+## Get the amount of images captured based on the time selected ##
+
+#This function takes a chosen date and returns a list of the hour
+#each detection was detected
+#for example: if three people were detected at 9AM on 5/23/2022,
+#it would return [9, 9, 9]
+def people_by_date(year, month, day):
+    time_from_date = []
+    for date in all_times_dates:
+        if int(date[0:4]) == year and int(date[4:6]) == month and int(date[6:8]) == day:
+            time_from_date.append(int(date[9:11]))
+    return time_from_date
+
+#function that takes a list of hours and tells returns how many instances
+#of each hour.
+#the idea is to filter IDs by a date first, then search for each of those ID's
+#corresponding times so we can get a count of people on a certain date at a certain time
+def by_time(list_of_hours):
+    traffic_by_time = {}
+    for m in range(len(list_of_hours)):
+        for n in range(0,24):
+            traffic_by_time[n] = list_of_hours.count(n)
+    return(traffic_by_time)
+
+def get_selection(year, month, day, selection):
     xVal = []
     yVal = []
     xSelected = []
@@ -204,8 +296,8 @@ def get_selection(month, day, selection):
         if i in xSelected and len(xSelected) < 24:
             colorVal[i] = "#FFFFFF"
         xVal.append(i)
-        # Get the number of rides at a particular time
-        yVal.append(len(totalList[month][day][totalList[month][day].index.hour == i]))
+        # Get the number of people and plates at a particular time
+        yVal = by_time(people_by_date(year, month, day)).values()
     return [np.array(xVal), np.array(yVal), np.array(colorVal)]
 
 
@@ -231,59 +323,66 @@ def update_selected_data(clickData):
         return {"points": []}
 
 
-# Update the total number of rides Tag
-@app.callback(Output("total-rides", "children"), [Input("date-picker", "date")])
-def update_total_rides(datePicked):
+# Update the total persons tag
+@app.callback(Output("total-detections", "children"), [Input("date-picker", "date")])
+def update_total_detections(datePicked):
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    return "Total Number of rides: {:,d}".format(
-        len(totalList[date_picked.month - 4][date_picked.day - 1])
+    qualified_dates = []
+    for time in all_times_dates:
+        if (date_picked.year == int(time[0:4])
+                and date_picked.month == int(time[4:6])
+                and date_picked.day == int(time[6:8])
+        ):
+            qualified_dates.append(time)
+    return "Total Number of detections: {:,d}".format(
+        len(qualified_dates)
     )
 
 
-# Update the total number of rides in selected times
-@app.callback(
-    [Output("total-rides-selection", "children"), Output("date-value", "children")],
-    [Input("date-picker", "date"), Input("bar-selector", "value")],
-)
-def update_total_rides_selection(datePicked, selection):
-    firstOutput = ""
-
-    if selection is not None or len(selection) is not 0:
-        date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-        totalInSelection = 0
-        for x in selection:
-            totalInSelection += len(
-                totalList[date_picked.month - 4][date_picked.day - 1][
-                    totalList[date_picked.month - 4][date_picked.day - 1].index.hour
-                    == int(x)
-                ]
-            )
-        firstOutput = "Total rides in selection: {:,d}".format(totalInSelection)
-
-    if (
-        datePicked is None
-        or selection is None
-        or len(selection) is 24
-        or len(selection) is 0
-    ):
-        return firstOutput, (datePicked, " - showing hour(s): All")
-
-    holder = sorted([int(x) for x in selection])
-
-    if holder == list(range(min(holder), max(holder) + 1)):
-        return (
-            firstOutput,
-            (
-                datePicked,
-                " - showing hour(s): ",
-                holder[0],
-                "-",
-                holder[len(holder) - 1],
-            ),
-        )
-
-    holder_to_string = ", ".join(str(x) for x in holder)
-    return firstOutput, (datePicked, " - showing hour(s): ", holder_to_string)
+# Update the total number of detections in selected times
+# @app.callback(
+#     [Output("total-selection-detections", "children"), Output("date-value", "children")],
+#     [Input("date-picker", "date"), Input("bar-selector", "value")],
+# )
+# def update_total_detection_selection(datePicked, selection):
+#     firstOutput = ""
+#
+#     if selection is not None or len(selection) is not 0:
+#         date_picked = dt.strptime(datePicked, "%Y-%m-%d")
+#         totalInSelection = 0
+#         for x in selection:
+#             totalInSelection += len(
+#                 totalList[date_picked.month - 4][date_picked.day - 1][
+#                     totalList[date_picked.month - 4][date_picked.day - 1].index.hour
+#                     == int(x)
+#                 ]
+#             )
+#         firstOutput = "Total detections in selection: {:,d}".format(totalInSelection)
+#
+#     if (
+#         datePicked is None
+#         or selection is None
+#         or len(selection) is 24
+#         or len(selection) is 0
+#     ):
+#         return firstOutput, (datePicked, " - showing hour(s): All")
+#
+#     holder = sorted([int(x) for x in selection])
+#
+#     if holder == list(range(min(holder), max(holder) + 1)):
+#         return (
+#             firstOutput,
+#             (
+#                 datePicked,
+#                 " - showing hour(s): ",
+#                 holder[0],
+#                 "-",
+#                 holder[len(holder) - 1],
+#             ),
+#         )
+#
+#     holder_to_string = ", ".join(str(x) for x in holder)
+#     return firstOutput, (datePicked, " - showing hour(s): ", holder_to_string)
 
 
 # Update Histogram Figure based on Month, Day and Times Chosen
@@ -293,8 +392,8 @@ def update_total_rides_selection(datePicked, selection):
 )
 def update_histogram(datePicked, selection):
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month - 4
-    dayPicked = date_picked.day - 1
+    monthPicked = date_picked.month #- 4
+    dayPicked = date_picked.day #- 1
 
     [xVal, yVal, colorVal] = get_selection(monthPicked, dayPicked, selection)
 

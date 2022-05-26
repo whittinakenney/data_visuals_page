@@ -9,7 +9,7 @@ import plotly.express as px
 import numpy as np
 from dash.dependencies import Output, Input
 
-data = pd.read_csv("FakePeopleData.csv")
+data = pd.read_csv("uberProj/N-Factor_RandomGenerated .csv")
 #data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
 #data.sort_values("Date", inplace=True)
 
@@ -21,7 +21,7 @@ external_stylesheets = [
     },
 ]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-app.title = "Fake People Stats"
+app.title = "Randomly Generated N-Factor Data"
 
 ##Layered Bar Graph##
 x = list(data["PersonID"])
@@ -53,10 +53,10 @@ app.layout = html.Div(
             children=[
                 html.P(children=u"\U0001F47B", className="header-emoji"),
                 html.H1(
-                    children="Fake People Data", className="header-title"
+                    children="Randomly Generated N-Factor Data", className="header-title"
                 ),
                 html.P(
-                    children="20 fake people and their identifying characteristics",
+                    children="20 randomly generated people and their identifying characteristics",
                     className="header-description",
                 ),
             ],

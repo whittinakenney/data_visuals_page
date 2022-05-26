@@ -1,7 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-data = pd.read_csv("FakePeopleData.csv")
+data = pd.read_csv("uberProj/N-Factor_RandomGenerated .csv")
 
 x = list(data["PersonID"])
 sig_vector = [.25, .25, .25, .25] #must be same size as number of characteristics and add to 1

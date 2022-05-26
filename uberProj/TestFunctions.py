@@ -14,6 +14,13 @@ df3 = pd.read_csv(
     "N-Factor_RandomGenerated .csv"
 )
 
+Vehicle_Labels = list(df1["LABEL"])
+People_Labels = list(df2["LABEL"])
+Vehicle_People_Labels = Vehicle_Labels + People_Labels
+
+Person_ID_list = list(df2["PersonID"])
+Plate_Num_List = list(df1["PlateNumber"])
+Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
 # Collecting Unique locations of cameras for both people and vehicles
 Vehicle_Lats = list(df1["LAT"])
 Vehicle_Longs = list(df1["LONG"])
@@ -21,6 +28,9 @@ Vehicle_Lat_Long = tuple(zip(Vehicle_Lats, Vehicle_Longs))
 People_Lats = list(df2["LAT"])
 People_Longs = list(df2["LONG"])
 People_Lat_Long = tuple(zip(People_Lats, People_Longs))
+Vehicle_People_Coords = Vehicle_Lat_Long + People_Lat_Long
+Vehicle_People_Lats = Vehicle_Lats + People_Lats
+Vehicle_People_Longs = Vehicle_Longs + People_Longs
 
 Unique_Vehicle_Locations = list(set(Vehicle_Lat_Long))
 Unique_People_Locations = list(set(People_Lat_Long))
@@ -35,7 +45,6 @@ for n in range(len(Unique_Vehicle_Locations)):
     latitude = Unique_Vehicle_Locations[n][0]
     longitude = Unique_Vehicle_Locations[n][1]
     dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "long": longitude}
-
 
 for m in range(len(Unique_People_Locations)):
     PersonLocationID = m * 2 #person cam location IDs only even numbers
@@ -74,15 +83,43 @@ def max_date():
     return (max_year, max_month, 1)
 
 
-PersonIDs = list(df2["PersonID"])
-PlateNumbers = list(df1["PlateNumber"])
-Plates_and_PersonIDs = PlateNumbers + PersonIDs
+Person_ID_list = list(df2["PersonID"])
+Plate_Num_List = list(df1["PlateNumber"])
+Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
+print(Vehicle_Person_IDs)
 ## remember all_times_dates = vehicle_times + person_times
 
 #We are going to match all the IDs (person and plate) with the times
 #they were collected
-IDs_and_time_collected = tuple(zip(Plates_and_PersonIDs, all_hours))
+IDs_and_time_collected = tuple(zip(Vehicle_Person_IDs, all_hours))
 
+##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL
+standard_date_time_list = []
+for n in range(len(all_times_dates)):
+    hour = (int(all_times_dates[n][9:11]) - 1)
+    date_string = "{}-{}-{} {}:{}:{}".format(
+        all_times_dates[n][0:4],
+        all_times_dates[n][4:6],
+        all_times_dates[n][6:8],
+        hour,
+        all_times_dates[n][11:13],
+        all_times_dates[n][13:15]
+    )
+    reformatted_date = dt.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+    standard_date_time_list.append(reformatted_date)
+
+zipped = list(zip(Vehicle_Person_IDs, standard_date_time_list,
+                  Vehicle_People_Lats, Vehicle_People_Longs,
+                  Vehicle_People_Labels
+                  ))
+df4 = pd.DataFrame(zipped, columns=[
+    "IDnumber",
+    "TIME",
+    "LAT",
+    "LONG",
+    "LABELS"]
+)
+print(df4)
 
 #This function takes a chosen date and returns a list of the hour
 #each detection was detected
@@ -163,5 +200,29 @@ def update_total_detections(datePicked):
         len(qualified_dates)
     )
 
+#Given date and time, this function will return a database with the ID, TIME, LAT, LONG, and LABEL
+#that corespond to that specific date and time
+
+def getLatLonColor(selectedData, month, day):
+    include_rows = []
+    include_rows_2 = []
+    for n in range(len(all_times_dates)):
+        if df4['TIME'][n].month == month and df4['TIME'][n].day == day:
+            include_rows.append(n)
+    listCoords = df4.iloc[include_rows]
+    list_qualified_dates = list(listCoords['TIME'])
+#No times selected, output all times for chosen month and date
+    if selectedData == None or len(selectedData) == 0:
+        return listCoords
+    for time in selectedData:
+        for m in range(len(list_qualified_dates)):
+            hour_at_row_m = "{}".format(list_qualified_dates[m].hour)
+            if hour_at_row_m == time:
+                include_rows_2.append(m)
+    listCoords_byHours = listCoords.iloc[include_rows_2]
+    if len(selectedData) != 0:
+        return listCoords_byHours
+
 ##You can test functions here##
-print(update_total_rides("2022-5-23"))
+listCoords = getLatLonColor(['21'], 5, 23))
+if listCoords['TEXT'].hour =

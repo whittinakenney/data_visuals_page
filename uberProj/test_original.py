@@ -25,4 +25,31 @@ for month in df.groupby(df.index.month):
     totalList.append(dailyList)
 totalList = np.array(totalList)
 
-print(len(totalList[2][24][totalList[2][24].index.hour == 1]))
+# def getLatLonColor(selectedData, month, day):
+#     listCoords = totalList[month][day]
+#
+#     # No times selected, output all times for chosen month and date
+#     if selectedData is None or len(selectedData) is 0:
+#         return listCoords
+#     listStr = "listCoords["
+#     for time in selectedData:
+#         if selectedData.index(time) is not len(selectedData) - 1:
+#             listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ") | "
+#         else:
+#             listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ")]"
+#     return eval(listStr)
+
+def getLatLonColor(selectedData, month, day):
+    listCoords = totalList[month][day]
+
+    # No times selected, output all times for chosen month and date
+    if selectedData is None or len(selectedData) is 0:
+        return listCoords
+    listStr = "listCoords["
+    for time in selectedData:
+        if selectedData.index(time) is not len(selectedData) - 1:
+            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ") | "
+        else:
+            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ")]"
+    return eval(listStr)
+print(getLatLonColor(['5', '6'], 4, 14))

@@ -18,7 +18,7 @@ server = app.server
 
 
 # Plotly mapbox public token
-mapbox_access_token = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A"
+mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZTNrbXU1OTN4NmJnYyJ9.GRJfLp1eHrnerFrpDqpzAw"
 
 #Read CSV files
 df1 = pd.read_csv(
@@ -61,18 +61,22 @@ def max_date():
     if max_month == 13:
         max_month = 1
         max_year = max_year + 1
-    return (max_year, max_month, 1)
+    return "{}-{}-{}".format(max_year, max_month, 1)
 
 #Next we make lists of hours IDs were collected
-PersonIDs = list(df2["PersonID"])
-PlateNumbers = list(df1["PlateNumber"])
-Plates_and_PersonIDs = PlateNumbers + PersonIDs
+Person_ID_list = list(df2["PersonID"])
+Plate_Num_List = list(df1["PlateNumber"])
+Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
 ## remember all_times_dates = vehicle_times + person_times
 
 #We are going to match all the IDs (person and plate) with the times
 #they were collected
-IDs_and_time_collected = tuple(zip(Plates_and_PersonIDs, all_hours))
-print(IDs_and_time_collected)
+IDs_and_time_collected = tuple(zip(Vehicle_Person_IDs, all_hours))
+
+#Collecting labels
+Vehicle_Labels = list(df1["LABEL"])
+People_Labels = list(df2["LABEL"])
+Vehicle_People_Labels = Vehicle_Labels + People_Labels
 
 # Collecting Unique locations of cameras for both people and vehicles
 Vehicle_Lats = list(df1["LAT"])
@@ -81,26 +85,68 @@ Vehicle_Lat_Long = tuple(zip(Vehicle_Lats, Vehicle_Longs))
 People_Lats = list(df2["LAT"])
 People_Longs = list(df2["LONG"])
 People_Lat_Long = tuple(zip(People_Lats, People_Longs))
+Vehicle_People_Coords = Vehicle_Lat_Long + People_Lat_Long
+Vehicle_People_Lats = Vehicle_Lats + People_Lats
+Vehicle_People_Longs = Vehicle_Longs + People_Longs
 
 Unique_Vehicle_Locations = list(set(Vehicle_Lat_Long))
 Unique_People_Locations = list(set(People_Lat_Long))
 
 dict_of_people_locations = {}
 dict_of_vehicle_locations = {}
+dict_of_vehicle_people_locations = {}
 VehicleLocationID = 0
 PersonLocationID = 0
+ALL_LocationID = 0
 
 for n in range(len(Unique_Vehicle_Locations)):
     VehicleLocationID = 2 * n + 1 #vehicle cam locations IDs only odd numbers
     latitude = Unique_Vehicle_Locations[n][0]
     longitude = Unique_Vehicle_Locations[n][1]
-    dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "long": longitude}
+    dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "lon": longitude}
 
 for m in range(len(Unique_People_Locations)):
     PersonLocationID = m * 2 #person cam location IDs only even numbers
     latitude = Unique_People_Locations[m][0]
     longitude = Unique_Vehicle_Locations[m][1]
-    dict_of_people_locations[PersonLocationID] = {"lat": latitude, "long": longitude}
+    dict_of_people_locations[PersonLocationID] = {"lat": latitude, "lon": longitude}
+
+Unique_Vehicle_People_Locations = list(set(Unique_Vehicle_Locations + Unique_People_Locations))
+
+for p in range(len(Unique_Vehicle_People_Locations)):
+    ALL_LocationID = p #unique locations from both person and vehicle cams
+    latitude = Unique_Vehicle_People_Locations[p][0]
+    longitude = Unique_Vehicle_People_Locations[p][1]
+    dict_of_vehicle_people_locations[ALL_LocationID] = {"lat": latitude, "lon": longitude}
+
+list_of_locations = dict_of_vehicle_people_locations
+
+##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL
+standard_date_time_list = []
+for n in range(len(all_times_dates)):
+    hour = (int(all_times_dates[n][9:11]) - 1)
+    date_string = "{}-{}-{} {}:{}:{}".format(
+        all_times_dates[n][0:4],
+        all_times_dates[n][4:6],
+        all_times_dates[n][6:8],
+        hour,
+        all_times_dates[n][11:13],
+        all_times_dates[n][13:15]
+    )
+    reformatted_date = dt.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+    standard_date_time_list.append(reformatted_date)
+
+zipped = list(zip(Vehicle_Person_IDs, standard_date_time_list,
+                  Vehicle_People_Lats, Vehicle_People_Longs,
+                  Vehicle_People_Labels
+                  ))
+df4 = pd.DataFrame(zipped, columns=[
+    "IDnumber",
+    "TIME",
+    "LAT",
+    "LONG",
+    "LABELS"]
+)
 
 # df = pd.concat([df1, df2, df3], axis=0)
 # df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d %H:%M")
@@ -161,26 +207,26 @@ app.layout = html.Div(
                                             id="location-dropdown",
                                             options=[
                                                 {"label": i, "value": i}
-                                                for i in dict_of_people_locations
+                                                for i in dict_of_vehicle_people_locations
                                             ],
-                                            placeholder="Location of person camera",
+                                            placeholder="Location",
                                         )
                                     ],
                                 ),
-                                html.Div(
-                                    className="div-for-dropdown",
-                                    children=[
-                                        # Dropdown for cameras collecting vehicle data
-                                        dcc.Dropdown(
-                                            id="location-dropdown",
-                                            options=[
-                                                {"label": p, "value": p}
-                                                for p in dict_of_vehicle_locations
-                                            ],
-                                            placeholder="Location of vehicle camera",
-                                        )
-                                    ],
-                                ),
+                                # html.Div(
+                                #     className="div-for-dropdown",
+                                #     children=[
+                                #         # Dropdown for cameras collecting vehicle data
+                                #         dcc.Dropdown(
+                                #             id="location-dropdown",
+                                #             options=[
+                                #                 {"label": p, "value": p}
+                                #                 for p in dict_of_vehicle_locations
+                                #             ],
+                                #             placeholder="Location of vehicle camera",
+                                #         )
+                                #     ],
+                                # ),
                                 html.Div(
                                     className="div-for-dropdown",
                                     children=[
@@ -453,20 +499,28 @@ def update_histogram(datePicked, selection):
     )
 
 
-# Get the Coordinates of the chosen months, dates and times
-def getLatLonColor(selectedData, month, day):
-    listCoords = totalList[month][day]
+#Given date and time, this function will return a database with the ID, TIME, LAT, LONG, and LABEL
+#that corespond to that specific date and time
 
-    # No times selected, output all times for chosen month and date
-    if selectedData is None or len(selectedData) is 0:
+def getLatLonColor(selectedData, month, day):
+    include_rows = []
+    include_rows_2 = []
+    for n in range(len(all_times_dates)):
+        if df4['TIME'][n].month == month and df4['TIME'][n].day == day:
+            include_rows.append(n)
+    listCoords = df4.iloc[include_rows]
+    list_qualified_dates = list(listCoords['TIME'])
+#No times selected, output all times for chosen month and date
+    if selectedData == None or len(selectedData) == 0:
         return listCoords
-    listStr = "listCoords["
     for time in selectedData:
-        if selectedData.index(time) is not len(selectedData) - 1:
-            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ") | "
-        else:
-            listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ")]"
-    return eval(listStr)
+        for m in range(len(list_qualified_dates)):
+            hour_at_row_m = "{}".format(list_qualified_dates[m].hour)
+            if hour_at_row_m == time:
+                include_rows_2.append(m)
+    listCoords_byHours = listCoords.iloc[include_rows_2]
+    if len(selectedData) != 0:
+        return listCoords_byHours
 
 
 # Update Map Graph based on date-picker, selected data on histogram and location dropdown
@@ -478,10 +532,10 @@ def getLatLonColor(selectedData, month, day):
         Input("location-dropdown", "value"),
     ],
 )
-def update_graph(datePicked, selectedData, selectedLocation):
+def update_graph(datePicked, selectedData, selectedLocation):#date, time in string format, location
     zoom = 12.0
-    latInitial = 40.7272
-    lonInitial = -73.991251
+    latInitial = 34.83363
+    lonInitial = -79.18255
     bearing = 0
 
     if selectedLocation:
@@ -490,19 +544,19 @@ def update_graph(datePicked, selectedData, selectedLocation):
         lonInitial = list_of_locations[selectedLocation]["lon"]
 
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month - 4
-    dayPicked = date_picked.day - 1
+    monthPicked = date_picked.month #- 4
+    dayPicked = date_picked.day #- 1
     listCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
 
     return go.Figure(
         data=[
             # Data for all rides based on date and time
             Scattermapbox(
-                lat=listCoords["Lat"],
-                lon=listCoords["Lon"],
+                lat=listCoords["LAT"],
+                lon=listCoords["LONG"],
                 mode="markers",
                 hoverinfo="lat+lon+text",
-                text=listCoords.index.hour,
+                text=listCoords['TIME'].hour,
                 marker=dict(
                     showscale=True,
                     color=np.append(np.insert(listCoords.index.hour, 0, 0), 23),
@@ -553,7 +607,7 @@ def update_graph(datePicked, selectedData, selectedLocation):
             showlegend=False,
             mapbox=dict(
                 accesstoken=mapbox_access_token,
-                center=dict(lat=latInitial, lon=lonInitial),  # 40.7272  # -73.991251
+                center=dict(lat=latInitial, lon=lonInitial),  # ETI lat and long 34.83363, -79.18255
                 style="dark",
                 bearing=bearing,
                 zoom=zoom,
@@ -566,8 +620,8 @@ def update_graph(datePicked, selectedData, selectedLocation):
                                 args=[
                                     {
                                         "mapbox.zoom": 12,
-                                        "mapbox.center.lon": "-73.991251",
-                                        "mapbox.center.lat": "40.7272",
+                                        "mapbox.center.lon": "-79.18255",
+                                        "mapbox.center.lat": "34.83363",
                                         "mapbox.bearing": 0,
                                         "mapbox.style": "dark",
                                     }

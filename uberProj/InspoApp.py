@@ -3,6 +3,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
 import numpy as np
+import uuid
 
 from dash.dependencies import Input, Output
 from plotly import graph_objs as go
@@ -78,6 +79,11 @@ Vehicle_Labels = list(df1["LABEL"])
 People_Labels = list(df2["LABEL"])
 Vehicle_People_Labels = Vehicle_Labels + People_Labels
 
+#important locations
+important_locations = {
+    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246},
+}
+
 # Collecting Unique locations of cameras for both people and vehicles
 Vehicle_Lats = list(df1["LAT"])
 Vehicle_Longs = list(df1["LONG"])
@@ -95,36 +101,43 @@ Unique_People_Locations = list(set(People_Lat_Long))
 dict_of_people_locations = {}
 dict_of_vehicle_locations = {}
 dict_of_vehicle_people_locations = {}
+dict_of_All_detection_locations = {}
 VehicleLocationID = 0
 PersonLocationID = 0
 ALL_LocationID = 0
-
-for n in range(len(Unique_Vehicle_Locations)):
-    VehicleLocationID = 2 * n + 1 #vehicle cam locations IDs only odd numbers
-    latitude = Unique_Vehicle_Locations[n][0]
-    longitude = Unique_Vehicle_Locations[n][1]
-    dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "lon": longitude}
-
-for m in range(len(Unique_People_Locations)):
-    PersonLocationID = m * 2 #person cam location IDs only even numbers
-    latitude = Unique_People_Locations[m][0]
-    longitude = Unique_Vehicle_Locations[m][1]
-    dict_of_people_locations[PersonLocationID] = {"lat": latitude, "lon": longitude}
 
 Unique_Vehicle_People_Locations = list(set(Unique_Vehicle_Locations + Unique_People_Locations))
 
 for p in range(len(Unique_Vehicle_People_Locations)):
     ALL_LocationID = p #unique locations from both person and vehicle cams
-    latitude = Unique_Vehicle_People_Locations[p][0]
-    longitude = Unique_Vehicle_People_Locations[p][1]
+    latitude = float(Unique_Vehicle_People_Locations[p][0])
+    longitude = float(Unique_Vehicle_People_Locations[p][1])
     dict_of_vehicle_people_locations[ALL_LocationID] = {"lat": latitude, "lon": longitude}
 
-list_of_locations = dict_of_vehicle_people_locations
+for q in range(len(Vehicle_Lat_Long)):
+    LocationID = uuid.uuid4() #Gives ID to every detection
+    latitude = float(Vehicle_Lat_Long[q][0])
+    longitude = float(Vehicle_Lat_Long[q][1])
+    label = 'vehicle'
+    color = "#FFFFFF" #vehicles will be white
+    dict_of_All_detection_locations[LocationID] = {"lat": latitude, "lon": longitude,
+                                                   "label": label, "color": color}
+    for r in range(len(People_Lat_Long)):
+        LocationID = uuid.uuid4()
+        latitude2 = float(People_Lat_Long[r][0])
+        longitude2 = float(People_Lat_Long[r][1])
+        label2 = 'person'
+        color2 = "#8607A9" #people will be purple
+        dict_of_All_detection_locations[LocationID] = {"lat": latitude2, "lon": longitude2,
+                                                       "label": label2, "color": color2}
+
+list_of__unique_locations = dict_of_vehicle_people_locations
+list_of_locations = dict_of_All_detection_locations
 
 ##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL
 standard_date_time_list = []
 for n in range(len(all_times_dates)):
-    hour = (int(all_times_dates[n][9:11]) - 1)
+    hour = int(all_times_dates[n][9:11])
     date_string = "{}-{}-{} {}:{}:{}".format(
         all_times_dates[n][0:4],
         all_times_dates[n][4:6],
@@ -186,7 +199,7 @@ app.layout = html.Div(
                             children=[
                                 dcc.DatePickerSingle(
                                     id="date-picker",
-                                    min_date_allowed=dt(2022, 5, 23),
+                                    min_date_allowed=dt(2022, 5, 1),
                                     max_date_allowed=max_date(),
                                     initial_visible_month=dt(2022, 5, 1),
                                     date=dt(2022, 5, 1).date(),
@@ -207,7 +220,7 @@ app.layout = html.Div(
                                             id="location-dropdown",
                                             options=[
                                                 {"label": i, "value": i}
-                                                for i in dict_of_vehicle_people_locations
+                                                for i in important_locations
                                             ],
                                             placeholder="Location",
                                         )
@@ -303,6 +316,26 @@ def by_time(list_of_hours):
             traffic_by_time[n] = list_of_hours.count(n)
     return(traffic_by_time)
 
+#this functions takes the chosen year, month, and date
+#Then, it finds all instances in database that match
+#Then, it lists all the hours those instance occured
+#Ex: two people were detected at 9 on jan 23, 2022, it would list [9, 9]
+#Finally, it counts the occurence of each hour so [9, 9] would return [2]
+def count_per_hour(year, month, day):
+    hour_of_detection = []
+    detections_by_hour = []
+    for n in range(len(list(df4["TIME"]))):
+        if (df4['TIME'][n].year == year and
+            df4['TIME'][n].month == month and
+            df4['TIME'][n].day == day
+        ):
+            for m in range(24):
+                if df4['TIME'][n].hour == m:
+                    hour_of_detection.append(m)
+    for p in range(24):
+        detections_by_hour.append(hour_of_detection.count(p))
+    return detections_by_hour
+
 def get_selection(year, month, day, selection):
     xVal = []
     yVal = []
@@ -343,7 +376,7 @@ def get_selection(year, month, day, selection):
             colorVal[i] = "#FFFFFF"
         xVal.append(i)
         # Get the number of people and plates at a particular time
-        yVal = by_time(people_by_date(year, month, day)).values()
+        yVal = count_per_hour(year, month, day)
     return [np.array(xVal), np.array(yVal), np.array(colorVal)]
 
 
@@ -380,7 +413,7 @@ def update_total_detections(datePicked):
                 and date_picked.day == int(time[6:8])
         ):
             qualified_dates.append(time)
-    return "Total Number of detections: {:,d}".format(
+    return "Total Number of detections on day selected: {:,d}".format(
         len(qualified_dates)
     )
 
@@ -436,12 +469,13 @@ def update_total_detections(datePicked):
     Output("histogram", "figure"),
     [Input("date-picker", "date"), Input("bar-selector", "value")],
 )
-def update_histogram(datePicked, selection):
+def update_histogram(datePicked, value):
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     monthPicked = date_picked.month #- 4
     dayPicked = date_picked.day #- 1
+    yearPicked = date_picked.year
 
-    [xVal, yVal, colorVal] = get_selection(monthPicked, dayPicked, selection)
+    [xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
 
     layout = go.Layout(
         bargap=0.01,
@@ -500,7 +534,7 @@ def update_histogram(datePicked, selection):
 
 
 #Given date and time, this function will return a database with the ID, TIME, LAT, LONG, and LABEL
-#that corespond to that specific date and time
+#that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
     include_rows = []
@@ -512,6 +546,7 @@ def getLatLonColor(selectedData, month, day):
     list_qualified_dates = list(listCoords['TIME'])
 #No times selected, output all times for chosen month and date
     if selectedData == None or len(selectedData) == 0:
+        listCoords = listCoords.set_index('TIME')
         return listCoords
     for time in selectedData:
         for m in range(len(list_qualified_dates)):
@@ -519,9 +554,9 @@ def getLatLonColor(selectedData, month, day):
             if hour_at_row_m == time:
                 include_rows_2.append(m)
     listCoords_byHours = listCoords.iloc[include_rows_2]
+    listCoords_byHours = listCoords_byHours.set_index('TIME')
     if len(selectedData) != 0:
         return listCoords_byHours
-
 
 # Update Map Graph based on date-picker, selected data on histogram and location dropdown
 @app.callback(
@@ -540,8 +575,8 @@ def update_graph(datePicked, selectedData, selectedLocation):#date, time in stri
 
     if selectedLocation:
         zoom = 15.0
-        latInitial = list_of_locations[selectedLocation]["lat"]
-        lonInitial = list_of_locations[selectedLocation]["lon"]
+        latInitial = important_locations[selectedLocation]["lat"]
+        lonInitial = important_locations[selectedLocation]["lon"]
 
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     monthPicked = date_picked.month #- 4
@@ -551,16 +586,25 @@ def update_graph(datePicked, selectedData, selectedLocation):#date, time in stri
     return go.Figure(
         data=[
             # Data for all rides based on date and time
+            # Scattermapbox(
+            #     lat=[list_of_locations[m]["lat"] for m in list_of_locations],
+            #     lon=[list_of_locations[m]["lon"] for m in list_of_locations],
+            #     mode="markers",
+            #     hoverinfo="lat+lon+text",
+            #     text=[list_of_locations[m]["label"] for m in list_of_locations],
+            #     marker=dict(size=8,
+            #                 color=[list_of_locations[m]["color"] for m in list_of_locations]),
+            # ),
+            # # Plot of important locations on the map
             Scattermapbox(
-                lat=listCoords["LAT"],
-                lon=listCoords["LONG"],
+                lat=listCoords["Lat"],
+                lon=listCoords["Lon"],
                 mode="markers",
                 hoverinfo="lat+lon+text",
-                text=listCoords['TIME'].hour,
+                text=listCoords.index.hour,
                 marker=dict(
                     showscale=True,
-                    color=np.append(np.insert(listCoords.index.hour, 0, 0), 23),
-                    opacity=0.5,
+                    color=##function to determine color,
                     size=5,
                     colorscale=[
                         [0, "#F4EC15"],
@@ -591,14 +635,13 @@ def update_graph(datePicked, selectedData, selectedLocation):#date, time in stri
                     ),
                 ),
             ),
-            # Plot of important locations on the map
             Scattermapbox(
-                lat=[list_of_locations[i]["lat"] for i in list_of_locations],
-                lon=[list_of_locations[i]["lon"] for i in list_of_locations],
+                lat=[important_locations[i]["lat"] for i in important_locations],
+                lon=[important_locations[i]["lon"] for i in important_locations],
                 mode="markers",
                 hoverinfo="text",
-                text=[i for i in list_of_locations],
-                marker=dict(size=8, color="#ffa0a0"),
+                text=[i for i in important_locations],
+                marker=dict(size=8, color="#A91007"),
             ),
         ],
         layout=Layout(

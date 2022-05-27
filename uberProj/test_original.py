@@ -52,4 +52,7 @@ def getLatLonColor(selectedData, month, day):
         else:
             listStr += "(totalList[month][day].index.hour==" + str(int(time)) + ")]"
     return eval(listStr)
-print(getLatLonColor(['5', '6'], 4, 14))
+listCoords = getLatLonColor(['5', '6'], 4, 14)
+
+print(listCoords)
+print(listCoords.index.hour)

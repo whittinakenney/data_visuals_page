@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import uuid
 from datetime import datetime as dt
 
 df1 = pd.read_csv(
@@ -40,18 +41,28 @@ dict_of_vehicle_locations = {}
 VehicleLocationID = 0
 PersonLocationID = 0
 
-for n in range(len(Unique_Vehicle_Locations)):
-    VehicleLocationID = 2 * n + 1 #vehicle cam locations IDs only odd numbers
-    latitude = Unique_Vehicle_Locations[n][0]
-    longitude = Unique_Vehicle_Locations[n][1]
-    dict_of_vehicle_locations[VehicleLocationID] = {"lat": latitude, "long": longitude}
+# Collecting Unique locations of cameras for both people and vehicles
+Vehicle_Lats = list(df1["LAT"])
+Vehicle_Longs = list(df1["LONG"])
+Vehicle_Lat_Long = tuple(zip(Vehicle_Lats, Vehicle_Longs))
+People_Lats = list(df2["LAT"])
+People_Longs = list(df2["LONG"])
+People_Lat_Long = tuple(zip(People_Lats, People_Longs))
 
-for m in range(len(Unique_People_Locations)):
-    PersonLocationID = m * 2 #person cam location IDs only even numbers
-    latitude = Unique_People_Locations[m][0]
-    longitude = Unique_Vehicle_Locations[m][1]
-    dict_of_people_locations[PersonLocationID] = {"lat": latitude, "long": longitude}
+dict_of_vehicle_people_locations = {}
+ALL_LocationID = 0
 
+Unique_Vehicle_People_Locations = list(set(Unique_Vehicle_Locations + Unique_People_Locations))
+
+for p in range(len(Unique_Vehicle_People_Locations)):
+    ALL_LocationID = p #unique locations from both person and vehicle cams
+    latitude = float(Unique_Vehicle_People_Locations[p][0])
+    longitude = float(Unique_Vehicle_People_Locations[p][1])
+    dict_of_vehicle_people_locations[ALL_LocationID] = {"lat": latitude, "lon": longitude}
+
+list_of_locations = dict_of_vehicle_people_locations
+
+print(list_of_locations)
 
 vehicle_times = list(df1["TIME"])
 person_times = list(df2["TIME"])
@@ -96,7 +107,7 @@ IDs_and_time_collected = tuple(zip(Vehicle_Person_IDs, all_hours))
 ##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL
 standard_date_time_list = []
 for n in range(len(all_times_dates)):
-    hour = (int(all_times_dates[n][9:11]) - 1)
+    hour = int(all_times_dates[n][9:11])
     date_string = "{}-{}-{} {}:{}:{}".format(
         all_times_dates[n][0:4],
         all_times_dates[n][4:6],
@@ -213,6 +224,7 @@ def getLatLonColor(selectedData, month, day):
     list_qualified_dates = list(listCoords['TIME'])
 #No times selected, output all times for chosen month and date
     if selectedData == None or len(selectedData) == 0:
+        listCoords = listCoords.set_index('TIME')
         return listCoords
     for time in selectedData:
         for m in range(len(list_qualified_dates)):
@@ -220,9 +232,90 @@ def getLatLonColor(selectedData, month, day):
             if hour_at_row_m == time:
                 include_rows_2.append(m)
     listCoords_byHours = listCoords.iloc[include_rows_2]
+    listCoords_byHours = listCoords_byHours.set_index('TIME')
     if len(selectedData) != 0:
         return listCoords_byHours
 
-##You can test functions here##
-listCoords = getLatLonColor(['21'], 5, 23))
-if listCoords['TEXT'].hour =
+
+listCoords: pd.DataFrame = getLatLonColor(['21', '24', '17', '13'], 5, 23)
+#listCoords = listCoords.set_index('TIME')
+
+#this functions takes the chosen year, month, and date
+#Then, it finds all instances in database that match
+#Then, it lists all the hours those instance occured
+#Ex: two people were detected at 9 on jan 23, 2022, it would list [9, 9]
+#Finally, it counts the occurence of each hour so [9, 9] would return [2]
+def count_per_hour(year, month, day):
+    hour_of_detection = []
+    detections_by_hour = []
+    for n in range(len(list(df4["TIME"]))):
+        if (df4['TIME'][n].year == year and
+            df4['TIME'][n].month == month and
+            df4['TIME'][n].day == day
+        ):
+            for m in range(24):
+                if df4['TIME'][n].hour == m:
+                    hour_of_detection.append(m)
+    for p in range(24):
+        detections_by_hour.append(hour_of_detection.count(p))
+    return detections_by_hour
+
+def get_selection(year, month, day, selection):
+    xVal = []
+    yVal = []
+    xSelected = []
+    colorVal = [
+        "#F4EC15",
+        "#DAF017",
+        "#BBEC19",
+        "#9DE81B",
+        "#80E41D",
+        "#66E01F",
+        "#4CDC20",
+        "#34D822",
+        "#24D249",
+        "#25D042",
+        "#26CC58",
+        "#28C86D",
+        "#29C481",
+        "#2AC093",
+        "#2BBCA4",
+        "#2BB5B8",
+        "#2C99B4",
+        "#2D7EB0",
+        "#2D65AC",
+        "#2E4EA4",
+        "#2E38A4",
+        "#3B2FA0",
+        "#4E2F9C",
+        "#603099",
+    ]
+
+    # Put selected times into a list of numbers xSelected
+    xSelected.extend([int(x) for x in selection])
+
+    for i in range(24):
+        # If bar is selected then color it white
+        if i in xSelected and len(xSelected) < 24:
+            colorVal[i] = "#FFFFFF"
+        xVal.append(i)
+        # Get the number of people and plates at a particular time
+        yVal = count_per_hour(year, month, day)
+    return [np.array(xVal), np.array(yVal), np.array(colorVal)]
+
+#listCoords = listCoords.set_index('TIME')\
+
+print(getLatLonColor(['21', '24', '17', '13'], 5, 23))
+
+def choose_color(df_with_lat_long):
+    lats = list(df_with_lat_long["LAT"])
+    longs = list(df_with_lat_long["LONG"])
+
+print(Vehicle_People_Labels)
+for m in range(len(Vehicle_People_Labels)):
+    colors = []
+    if Vehicle_People_Labels[m] == "vehicle":
+        colors.append("#FFFFFF")
+    if Vehicle_People_Labels[m] == "person":
+        colors.append("#8607A9")
+print(colors)

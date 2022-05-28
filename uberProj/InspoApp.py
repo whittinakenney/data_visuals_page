@@ -1,6 +1,6 @@
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 import pandas as pd
 import numpy as np
 import uuid
@@ -68,6 +68,7 @@ def max_date():
 Person_ID_list = list(df2["PersonID"])
 Plate_Num_List = list(df1["PlateNumber"])
 Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
+
 ## remember all_times_dates = vehicle_times + person_times
 
 #We are going to match all the IDs (person and plate) with the times
@@ -81,7 +82,7 @@ Vehicle_People_Labels = Vehicle_Labels + People_Labels
 
 #important locations
 important_locations = {
-    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246},
+    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246}
 }
 
 # Collecting Unique locations of cameras for both people and vehicles
@@ -119,22 +120,20 @@ for q in range(len(Vehicle_Lat_Long)):
     latitude = float(Vehicle_Lat_Long[q][0])
     longitude = float(Vehicle_Lat_Long[q][1])
     label = 'vehicle'
-    color = "#FFFFFF" #vehicles will be white
     dict_of_All_detection_locations[LocationID] = {"lat": latitude, "lon": longitude,
-                                                   "label": label, "color": color}
+                                                   "label": label}
     for r in range(len(People_Lat_Long)):
         LocationID = uuid.uuid4()
         latitude2 = float(People_Lat_Long[r][0])
         longitude2 = float(People_Lat_Long[r][1])
         label2 = 'person'
-        color2 = "#8607A9" #people will be purple
         dict_of_All_detection_locations[LocationID] = {"lat": latitude2, "lon": longitude2,
-                                                       "label": label2, "color": color2}
+                                                       "label": label2}
 
 list_of__unique_locations = dict_of_vehicle_people_locations
 list_of_locations = dict_of_All_detection_locations
 
-##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL
+##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL, COLOR
 standard_date_time_list = []
 for n in range(len(all_times_dates)):
     hour = int(all_times_dates[n][9:11])
@@ -160,6 +159,16 @@ df4 = pd.DataFrame(zipped, columns=[
     "LONG",
     "LABELS"]
 )
+#add color code column to df4
+def assign_color_label(row):
+    if row['LABELS'] == 'vehicle':
+        color = "#FFFFFF"
+        return color
+    if row['LABELS'] == 'person':
+        color = "#8607A9"
+        return color
+
+df4['COLOR'] = df4.apply(lambda row: assign_color_label(row), axis=1)
 
 # df = pd.concat([df1, df2, df3], axis=0)
 # df["Date/Time"] = pd.to_datetime(df["Date/Time"], format="%Y-%m-%d %H:%M")
@@ -273,7 +282,7 @@ app.layout = html.Div(
                         html.Div(
                             className="text-padding",
                             children=[
-                                "" #can add text between map and histogram
+                                "Select any of the bars on the histogram to section data by time."
                             ],
                         ),
                         dcc.Graph(id="histogram"),
@@ -465,6 +474,13 @@ def update_total_detections(datePicked):
 
 
 # Update Histogram Figure based on Month, Day and Times Chosen
+
+# @app.callback(
+#     Output("live-update-text", "children"),
+#     Input("interval-component", "n_intervals"),
+# )
+#def update_figure(n):
+
 @app.callback(
     Output("histogram", "figure"),
     [Input("date-picker", "date"), Input("bar-selector", "value")],
@@ -558,6 +574,51 @@ def getLatLonColor(selectedData, month, day):
     if len(selectedData) != 0:
         return listCoords_byHours
 
+#function that creates df5
+def create_map_df(df_with_coords):
+    lats = list(df_with_coords["LAT"])
+    longs = list(df_with_coords['LONG'])
+    list_ID_list = [] #creates df5 IDs column
+    list_labels_lists = [] #creates labels column in df5
+    colors = [] #creates colors column of df5
+    lats_longs = list(set(tuple(zip(lats, longs))))
+    unique_lats = []
+    unique_longs = []
+    for n in range(len(lats_longs)):
+        unique_lats.append(lats_longs[n][0])
+        unique_longs.append(lats_longs[n][1])
+        ID_list = []
+        labels = []
+        for m in range(len(df_with_coords["LAT"])):
+            if (df_with_coords["LAT"][m] == lats_longs[n][0] and
+                    df_with_coords["LONG"][m] == lats_longs[n][1]):
+                ID_list.append(df_with_coords["IDnumber"][m])
+                labels.append(df_with_coords["LABELS"][m])
+        list_ID_list.append(ID_list)
+        list_labels_lists.append(labels)
+    number_of_detections = [] #creates number of detections column in df5
+    for IDlist in list_ID_list:
+        p = len(IDlist)
+        number_of_detections.append(p)
+    for label_list in list_labels_lists:
+        if len(label_list) == 1 and label_list == ['vehicle']:
+            colors.append('#FFFFFF')
+        elif len(label_list) == 1 and label_list == ['person']:
+            colors.append('#8607A9')
+        else:
+            colors.append('#7FFF00')
+    zipped = list(zip(number_of_detections, unique_lats, unique_longs,
+            list_ID_list, list_labels_lists, colors))
+    df5 = pd.DataFrame(zipped, columns=[
+        "DETECTIONS",
+        "LAT",
+        "LONG",
+        "IDnumber",
+        "LABELS",
+        "COLOR"]
+        )
+    return df5
+
 # Update Map Graph based on date-picker, selected data on histogram and location dropdown
 @app.callback(
     Output("map-graph", "figure"),
@@ -581,67 +642,25 @@ def update_graph(datePicked, selectedData, selectedLocation):#date, time in stri
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     monthPicked = date_picked.month #- 4
     dayPicked = date_picked.day #- 1
-    listCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
-
+    filteredCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
+    listCoords = create_map_df(filteredCoords)
     return go.Figure(
         data=[
-            # Data for all rides based on date and time
-            # Scattermapbox(
-            #     lat=[list_of_locations[m]["lat"] for m in list_of_locations],
-            #     lon=[list_of_locations[m]["lon"] for m in list_of_locations],
-            #     mode="markers",
-            #     hoverinfo="lat+lon+text",
-            #     text=[list_of_locations[m]["label"] for m in list_of_locations],
-            #     marker=dict(size=8,
-            #                 color=[list_of_locations[m]["color"] for m in list_of_locations]),
-            # ),
-            # # Plot of important locations on the map
             Scattermapbox(
-                lat=listCoords["Lat"],
-                lon=listCoords["Lon"],
+                lat=listCoords.LAT,
+                lon=listCoords.LONG,
                 mode="markers",
                 hoverinfo="lat+lon+text",
-                text=listCoords.index.hour,
-                marker=dict(
-                    showscale=True,
-                    color=##function to determine color,
-                    size=5,
-                    colorscale=[
-                        [0, "#F4EC15"],
-                        [0.04167, "#DAF017"],
-                        [0.0833, "#BBEC19"],
-                        [0.125, "#9DE81B"],
-                        [0.1667, "#80E41D"],
-                        [0.2083, "#66E01F"],
-                        [0.25, "#4CDC20"],
-                        [0.292, "#34D822"],
-                        [0.333, "#24D249"],
-                        [0.375, "#25D042"],
-                        [0.4167, "#26CC58"],
-                        [0.4583, "#28C86D"],
-                        [0.50, "#29C481"],
-                        [0.54167, "#2AC093"],
-                        [0.5833, "#2BBCA4"],
-                        [1.0, "#613099"],
-                    ],
-                    colorbar=dict(
-                        title="Time of<br>Day",
-                        x=0.93,
-                        xpad=0,
-                        nticks=24,
-                        tickfont=dict(color="#d8d8d8"),
-                        titlefont=dict(color="#d8d8d8"),
-                        thicknessmode="pixels",
-                    ),
+                text=listCoords['LABELS'],
+                marker=dict(size=5, color=listCoords["COLOR"], allowoverlap=True)
                 ),
-            ),
-            Scattermapbox(
+            Scattermapbox( #double check things are picked up at ETI
                 lat=[important_locations[i]["lat"] for i in important_locations],
                 lon=[important_locations[i]["lon"] for i in important_locations],
                 mode="markers",
                 hoverinfo="text",
                 text=[i for i in important_locations],
-                marker=dict(size=8, color="#A91007"),
+                marker=dict(size=8, color="#A91007", allowoverlap=True),
             ),
         ],
         layout=Layout(

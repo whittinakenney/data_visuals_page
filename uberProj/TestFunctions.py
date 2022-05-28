@@ -15,6 +15,7 @@ df3 = pd.read_csv(
     "N-Factor_RandomGenerated .csv"
 )
 
+#Collecting labels
 Vehicle_Labels = list(df1["LABEL"])
 People_Labels = list(df2["LABEL"])
 Vehicle_People_Labels = Vehicle_Labels + People_Labels
@@ -305,17 +306,112 @@ def get_selection(year, month, day, selection):
 
 #listCoords = listCoords.set_index('TIME')\
 
-print(getLatLonColor(['21', '24', '17', '13'], 5, 23))
+def assign_color_label(row):
+    if row['LABELS'] == 'vehicle':
+        color = "#FFFFFF"
+        return color
+    if row['LABELS'] == 'person':
+        color = "#8607A9"
+        return color
+df4['COLOR'] = df4.apply(lambda row: assign_color_label(row), axis=1)
 
-def choose_color(df_with_lat_long):
-    lats = list(df_with_lat_long["LAT"])
-    longs = list(df_with_lat_long["LONG"])
+print(df4)
 
-print(Vehicle_People_Labels)
-for m in range(len(Vehicle_People_Labels)):
-    colors = []
-    if Vehicle_People_Labels[m] == "vehicle":
-        colors.append("#FFFFFF")
-    if Vehicle_People_Labels[m] == "person":
-        colors.append("#8607A9")
-print(colors)
+listCoords = getLatLonColor([], 5, 23)
+print(listCoords)
+
+def create_map_df(df_with_coords):
+    lats = list(df_with_coords["LAT"])
+    longs = list(df_with_coords['LONG'])
+    list_ID_list = [] #creates df5 IDs column
+    list_labels_lists = [] #creates labels column in df5
+    colors = [] #creates colors column of df5
+    lats_longs = list(set(tuple(zip(lats, longs))))
+    unique_lats = []
+    unique_longs = []
+    for n in range(len(lats_longs)):
+        unique_lats.append(lats_longs[n][0])
+        unique_longs.append(lats_longs[n][1])
+        ID_list = []
+        labels = []
+        for m in range(len(df_with_coords["LAT"])):
+            if (df_with_coords["LAT"][m] == lats_longs[n][0] and
+                    df_with_coords["LONG"][m] == lats_longs[n][1]):
+                ID_list.append(df_with_coords["IDnumber"][m])
+                labels.append(df_with_coords["LABELS"][m])
+        list_ID_list.append(ID_list)
+        list_labels_lists.append(labels)
+    number_of_detections = [] #creates number of detections column in df5
+    for IDlist in list_ID_list:
+        p = len(IDlist)
+        number_of_detections.append(p)
+    for label_list in list_labels_lists:
+        if len(label_list) == 1 and label_list == ['vehicle']:
+            colors.append('#FFFFFF')
+        elif len(label_list) == 1 and label_list == ['person']:
+            colors.append('#8607A9')
+        else:
+            colors.append('#7FFF00')
+    zipped = list(zip(number_of_detections, unique_lats, unique_longs,
+            list_ID_list, list_labels_lists, colors))
+    df5 = pd.DataFrame(zipped, columns=[
+        "DETECTIONS",
+        "LAT",
+        "LONG",
+        "IDs",
+        "LABELS",
+        "COLOR"]
+        )
+    return df5
+
+important_locations = {
+    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246}
+}
+Vehicle_Lats = list(df1["LAT"])
+Vehicle_Longs = list(df1["LONG"])
+Vehicle_Lat_Long = tuple(zip(Vehicle_Lats, Vehicle_Longs))
+People_Lats = list(df2["LAT"])
+People_Longs = list(df2["LONG"])
+People_Lat_Long = tuple(zip(People_Lats, People_Longs))
+Vehicle_People_Coords = Vehicle_Lat_Long + People_Lat_Long
+Vehicle_People_Lats = Vehicle_Lats + People_Lats
+Vehicle_People_Longs = Vehicle_Longs + People_Longs
+
+Unique_Vehicle_Locations = list(set(Vehicle_Lat_Long))
+Unique_People_Locations = list(set(People_Lat_Long))
+
+dict_of_people_locations = {}
+dict_of_vehicle_locations = {}
+dict_of_vehicle_people_locations = {}
+dict_of_All_detection_locations = {}
+VehicleLocationID = 0
+PersonLocationID = 0
+ALL_LocationID = 0
+for q in range(len(Vehicle_Lat_Long)):
+    if important_locations[
+        "Emerging Technology Institute"] == {"lat": Vehicle_Lat_Long[q][0], "long": Vehicle_Lat_Long[q][1]}:
+        LocationID="Emerging Technology Institute"
+        label = (LocationID, 'vehicle')
+    else:
+        LocationID=uuid.uuid4() #Gives ID to every detection
+        label = 'vehicle'
+    latitude = float(Vehicle_Lat_Long[q][0])
+    longitude = float(Vehicle_Lat_Long[q][1])
+    dict_of_All_detection_locations[LocationID] = {"lat": latitude, "lon": longitude,
+                                                   "label": label}
+    for r in range(len(People_Lat_Long)):
+        if important_locations[
+            "Emerging Technology Institute"] == {"lat": People_Lat_Long[r][0], "long": People_Lat_Long[r][1]}:
+            LocationID = "Emerging Technology Institute"
+            label2 = (LocationID, 'person')
+        else:
+            LocationID = uuid.uuid4()  # Gives ID to every detection
+            label2 = 'person'
+        latitude2 = float(People_Lat_Long[r][0])
+        longitude2 = float(People_Lat_Long[r][1])
+        dict_of_All_detection_locations[LocationID] = {"lat": latitude2, "lon": longitude2,
+                                                       "label": label2}
+print(dict_of_All_detection_locations)
+
+
+

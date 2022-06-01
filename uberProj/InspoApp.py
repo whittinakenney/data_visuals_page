@@ -1,3 +1,8 @@
+#pip install dash
+#pip install plotly
+#pip install datetime
+#pip install pymongo
+#pip install dash-daq
 import dash
 from dash import dcc
 from dash import html
@@ -9,14 +14,18 @@ from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
 from datetime import datetime as dt
+import pandas as pd
+from pymongo import MongoClient
+import cdata.mongodb as mod
 
+##database
+client = MongoClient('45.79.221.195', 27017)
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}],
 )
 app.title = "Person Identification and Plate Identification"
 server = app.server
-
 
 # Plotly mapbox public token
 mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZTNrbXU1OTN4NmJnYyJ9.GRJfLp1eHrnerFrpDqpzAw"
@@ -38,6 +47,37 @@ important_locations = {
 # df3 = pd.read_csv(
 #     "N-Factor_RandomGenerated .csv"
 # )
+
+db = client['test-database']
+posts = db.posts
+
+##this gets done on Jackson's end
+df_vehicles = pd.read_csv('TrafficData_Rand.csv') #df1 corresponds to vehicles
+post1 = df_vehicles.to_dict(orient='split')
+
+df_people = pd.read_csv('Time_Location_Rand_People.csv') #df2 corresponds to people
+post2 = df_people.to_dict(orient='split')
+
+post_id1 = posts.insert_one(post1).inserted_id  # grabbing vehicle data
+post_id2 = posts.insert_one(post2).inserted_id  # grabbing person data
+
+def get_posts():
+    db = client['test-database']
+    return (post_id1, post_id2) #post_id1 needs to be vehicles and #post_id2 needs to be people
+
+def reload_dataframe():
+    ##may need to set new_df1 and new_df2 equal to collections instead
+    db = client['test-database']
+    posts = db.posts
+    post_id1, post_id2 = get_posts()
+    new_df1 = pd.DataFrame(columns=posts.find_one(post_id1)['columns'])
+    for idx, row in zip(posts.find_one(post_id1)['index'], posts.find_one(post_id1)['data']):
+        new_df1.loc[idx] = row
+    new_df2 = pd.DataFrame(columns=posts.find_one(post_id2)['columns'])
+    for idx, row in zip(posts.find_one(post_id2)['index'], posts.find_one(post_id2)['data']):
+        new_df2.loc[idx] = row
+    return (new_df1, new_df2)
+##Is it better to have this function return only the new rows and append them to my local data file??
 
 #Maximum Date from data
 def extract_all_times(df1, df2):
@@ -63,14 +103,15 @@ def extract_times(df1, df2):
     return (all_years, all_months, all_hours)
 
 def max_date():
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = reload_dataframe()
+    # df1 = pd.read_csv(
+    #     "TrafficData_Rand.csv",
+    #     dtype=object,
+    # )
+    # df2 = pd.read_csv(
+    #     "Time_Location_Rand_People.csv",
+    #     dtype=object,
+    # )
     all_years, all_months, all_hours = extract_times(df1, df2)
     max_year = max(all_years)
     max_month = max(all_months) + 12
@@ -81,8 +122,8 @@ def max_date():
 
 #Next we make lists of hours IDs were collected
 def all_IDs(df1, df2):
-    Person_ID_list = list(df2["PersonID"])
-    Plate_Num_List = list(df1["PlateNumber"])
+    Person_ID_list = list(df2["ID"])
+    Plate_Num_List = list(df1["ID"])
     Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
     return Vehicle_Person_IDs
 
@@ -188,7 +229,7 @@ app.layout = html.Div(
         html.Div(id='live-update-csv'),
         dcc.Interval(
         id='interval-component',
-        interval=2.5*1000, # in milliseconds
+        interval=3*1000, # in milliseconds
         n_intervals=0),
         html.Div(
             className="row",
@@ -290,6 +331,7 @@ app.layout = html.Div(
     ]
 )
 
+
 # Gets the amount of days in the specified month
 # Index represents month (0 is Jan, 1 is Feb, ... etc.)
 daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -338,17 +380,18 @@ monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
 #Ex: two people were detected at 9 on jan 23, 2022, it would list [9, 9]
 #Finally, it counts the occurence of each hour so [9, 9] would return [2]
 def count_per_hour(year, month, day):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
-    df3 = pd.read_csv(
-        "N-Factor_RandomGenerated .csv"
-    )
+    # df1 = pd.read_csv(
+    #     "TrafficData_Rand.csv",
+    #     dtype=object,
+    # )
+    # df2 = pd.read_csv(
+    #     "Time_Location_Rand_People.csv",
+    #     dtype=object,
+    # )
+    # df3 = pd.read_csv(
+    #     "N-Factor_RandomGenerated .csv"
+    # )
+    df1, df2 = reload_dataframe()
     hour_of_detection = []
     detections_by_hour = []
     df4 = data_frame4(df1, df2)
@@ -428,19 +471,19 @@ def update_selected_data(clickData):
     if clickData:
         return {"points": []}
 
-
 # Update the total persons tag
 @app.callback(Output("total-detections", "children"), [Input("date-picker", "date"),
                                                        Input("interval-component", "n_intervals")])
 def update_total_detections(datePicked, n):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    # df1 = pd.read_csv(
+    #     "TrafficData_Rand.csv",
+    #     dtype=object,
+    # )
+    # df2 = pd.read_csv(
+    #     "Time_Location_Rand_People.csv",
+    #     dtype=object,
+    # )
+    df1, df2 = reload_dataframe()
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     qualified_dates = []
     all_times_dates = extract_all_times(df1, df2)
@@ -576,14 +619,15 @@ def update_histogram_live(datePicked, value, n):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    # df1 = pd.read_csv(
+    #     "TrafficData_Rand.csv",
+    #     dtype=object,
+    # )
+    # df2 = pd.read_csv(
+    #     "Time_Location_Rand_People.csv",
+    #     dtype=object,
+    # )
+    df1, df2 = reload_dataframe()
     all_times_dates = extract_all_times(df1, df2)
     df4 = data_frame4(df1, df2)
     include_rows = []
@@ -658,11 +702,10 @@ def create_map_df(df_with_coords):
     [
         Input("date-picker", "date"),
         Input("bar-selector", "value"),
-        Input("location-dropdown", "value"),
-        Input("interval-component", "n_intervals")
+        Input("location-dropdown", "value")
     ],
 )
-def update_graph(datePicked, selectedData, selectedLocation, n):#date, time in string format, location
+def update_graph(datePicked, selectedData, selectedLocation):#date, time in string format, location
     zoom = 12.0
     latInitial = 34.83363
     lonInitial = -79.18255

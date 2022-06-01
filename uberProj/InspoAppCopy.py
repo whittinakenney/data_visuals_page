@@ -26,18 +26,18 @@ important_locations = {
     "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246}
 }
 
-#Read CSV files
-df1 = pd.read_csv(
-    "TrafficData_Rand.csv",
-    dtype=object,
-)
-df2 = pd.read_csv(
-    "Time_Location_Rand_People.csv",
-    dtype=object,
-)
-df3 = pd.read_csv(
-    "N-Factor_RandomGenerated .csv"
-)
+# #Read CSV files
+# df1 = pd.read_csv(
+#     "TrafficData_Rand.csv",
+#     dtype=object,
+# )
+# df2 = pd.read_csv(
+#     "Time_Location_Rand_People.csv",
+#     dtype=object,
+# )
+# df3 = pd.read_csv(
+#     "N-Factor_RandomGenerated .csv"
+# )
 
 #Maximum Date from data
 def extract_all_times(df1, df2):
@@ -62,10 +62,18 @@ def extract_times(df1, df2):
         #date_time_array = [np.array(all_dates), np.array(all_times)]  # array of dates and times
     return (all_years, all_months, all_hours)
 
-def max_date(df1, df2):
+def max_date():
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
     all_years, all_months, all_hours = extract_times(df1, df2)
     max_year = max(all_years)
-    max_month = max(all_months) + 1
+    max_month = max(all_months) + 12
     if max_month == 13:
         max_month = 1
         max_year = max_year + 1
@@ -73,8 +81,8 @@ def max_date(df1, df2):
 
 #Next we make lists of hours IDs were collected
 def all_IDs(df1, df2):
-    Person_ID_list = list(df2["PersonID"])
-    Plate_Num_List = list(df1["PlateNumber"])
+    Person_ID_list = list(df2["ID"])
+    Plate_Num_List = list(df1["ID"])
     Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
     return Vehicle_Person_IDs
 
@@ -180,7 +188,7 @@ app.layout = html.Div(
         html.Div(id='live-update-csv'),
         dcc.Interval(
         id='interval-component',
-        interval=1*1000, # in milliseconds
+        interval=2.5*1000, # in milliseconds
         n_intervals=0),
         html.Div(
             className="row",
@@ -290,15 +298,15 @@ daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
-@app.callback(Output('live-update-csv', 'children'),
-              Input('interval-component', 'n_intervals'))
-def update_dataframes(n):
-    columns1 = list(df1.columns)
-    columns2 = list(df2.columns)
-    columns3 = list(df3.columns)
-    df1 = pd.read_csv('TrafficData_Rand.csv', header = None, names=columns1)
-    df2 = pd.read_csv('Time_Location_Rand_People.csv', header = None, names=columns2)
-    df3 = pd.read_csv('N-Factor_RandomGenerated .csv', header = None, names=columns3)
+# @app.callback(Output('live-update-csv', 'children'),
+#               Input('interval-component', 'n_intervals'))
+# def update_dataframes(n):
+#     columns1 = list(df1.columns)
+#     columns2 = list(df2.columns)
+#     columns3 = list(df3.columns)
+#     df1 = pd.read_csv('TrafficData_Rand.csv', header = None, names=columns1)
+#     df2 = pd.read_csv('Time_Location_Rand_People.csv', header = None, names=columns2)
+#     df3 = pd.read_csv('N-Factor_RandomGenerated .csv', header = None, names=columns3)
 
 ## Get the amount of images captured based on the time selected ##
 
@@ -306,23 +314,23 @@ def update_dataframes(n):
 #each detection was detected
 #for example: if three people were detected at 9AM on 5/23/2022,
 #it would return [9, 9, 9]
-def people_by_date(year, month, day):
-    time_from_date = []
-    for date in all_times_dates:
-        if int(date[0:4]) == year and int(date[4:6]) == month and int(date[6:8]) == day:
-            time_from_date.append(int(date[9:11]))
-    return time_from_date
+# def people_by_date(year, month, day):
+#     time_from_date = []
+#     for date in all_times_dates:
+#         if int(date[0:4]) == year and int(date[4:6]) == month and int(date[6:8]) == day:
+#             time_from_date.append(int(date[9:11]))
+#     return time_from_date
 
 #function that takes a list of hours and tells returns how many instances
 #of each hour.
 #the idea is to filter IDs by a date first, then search for each of those ID's
 #corresponding times so we can get a count of people on a certain date at a certain time
-def by_time(list_of_hours):
-    traffic_by_time = {}
-    for m in range(len(list_of_hours)):
-        for n in range(0,24):
-            traffic_by_time[n] = list_of_hours.count(n)
-    return(traffic_by_time)
+# def by_time(list_of_hours):
+#     traffic_by_time = {}
+#     for m in range(len(list_of_hours)):
+#         for n in range(0,24):
+#             traffic_by_time[n] = list_of_hours.count(n)
+#     return(traffic_by_time)
 
 #this functions takes the chosen year, month, and date
 #Then, it finds all instances in database that match
@@ -343,6 +351,7 @@ def count_per_hour(year, month, day):
     )
     hour_of_detection = []
     detections_by_hour = []
+    df4 = data_frame4(df1, df2)
     for n in range(len(list(df4["TIME"]))):
         if (df4['TIME'][n].year == year and
             df4['TIME'][n].month == month and
@@ -356,17 +365,6 @@ def count_per_hour(year, month, day):
     return detections_by_hour
 
 def get_selection(year, month, day, selection):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
-    df3 = pd.read_csv(
-        "N-Factor_RandomGenerated .csv"
-    )
     xVal = []
     yVal = []
     xSelected = []
@@ -412,9 +410,9 @@ def get_selection(year, month, day, selection):
 # Selected Data in the Histogram updates the Values in the Hours selection dropdown menu
 @app.callback(
     Output("bar-selector", "value"),
-    [Input("histogram", "selectedData"), Input("histogram", "clickData"), Input("interval-component", "n_intervals")]
+    [Input("histogram", "selectedData"), Input("histogram", "clickData")]
 )
-def update_bar_selector(value, clickData, n):
+def update_bar_selector(value, clickData):
     holder = []
     if clickData:
         holder.append(str(int(clickData["points"][0]["x"])))
@@ -435,8 +433,17 @@ def update_selected_data(clickData):
 @app.callback(Output("total-detections", "children"), [Input("date-picker", "date"),
                                                        Input("interval-component", "n_intervals")])
 def update_total_detections(datePicked, n):
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     qualified_dates = []
+    all_times_dates = extract_all_times(df1, df2)
     for time in all_times_dates:
         if (date_picked.year == int(time[0:4])
                 and date_picked.month == int(time[4:6])
@@ -569,6 +576,16 @@ def update_histogram_live(datePicked, value, n):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+    all_times_dates = extract_all_times(df1, df2)
+    df4 = data_frame4(df1, df2)
     include_rows = []
     include_rows_2 = []
     for n in range(len(all_times_dates)):
@@ -641,22 +658,10 @@ def create_map_df(df_with_coords):
     [
         Input("date-picker", "date"),
         Input("bar-selector", "value"),
-        Input("location-dropdown", "value"),
-        Input("interval-component", "n_intervals")
+        Input("location-dropdown", "value")
     ],
 )
-def update_graph(datePicked, selectedData, selectedLocation, n):#date, time in string format, location
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
-    df3 = pd.read_csv(
-        "N-Factor_RandomGenerated .csv"
-    )
+def update_graph(datePicked, selectedData, selectedLocation):#date, time in string format, location
     zoom = 12.0
     latInitial = 34.83363
     lonInitial = -79.18255

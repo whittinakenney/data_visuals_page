@@ -9,6 +9,8 @@ from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
 from datetime import datetime as dt
+import dash_daq as daq
+import dash_bootstrap_components as dbc
 
 
 app = dash.Dash(
@@ -191,97 +193,48 @@ app.layout = html.Div(
         interval=2.5*1000, # in milliseconds
         n_intervals=0),
         html.Div(
-            className="row",
-            children=[
-                # Column for user controls
-                html.Div(
-                    className="four columns div-user-controls",
-                    children=[
-                        html.A(
+                className="four columns div-user-controls",
+                children=[
+                    html.A(
                             html.Img(
                                 className="logo",
                                 src=app.get_asset_url("dash-logo-new.png"),
                             ),
                             href="https://plotly.com/dash/",
                         ),
-                        html.H2("Person and Plate Information"),
-                        html.P(
-                            """Select filters for data"""
-                        ),
-                        html.Div(
-                            className="div-for-dropdown",
-                            children=[
-                                dcc.DatePickerSingle(
-                                    id="date-picker",
-                                    min_date_allowed=dt(2022, 5, 1),
-                                    max_date_allowed=max_date(),
-                                    initial_visible_month=dt(2022, 5, 1),
-                                    date=dt(2022, 5, 1).date(),
-                                    display_format="MMMM D, YYYY",
-                                    style={"border": "0px solid black"},
-                                )
-                            ],
-                        ),
-                        # Change to side-by-side for mobile layout
-                        html.Div(
-                            className="row",
-                            children=[
-                                html.Div(
-                                    className="div-for-dropdown",
-                                    children=[
-                                        # Dropdown for cameras collecting person data
-                                        dcc.Dropdown(
-                                            id="location-dropdown",
-                                            options=[
-                                                {"label": i, "value": i}
-                                                for i in important_locations
-                                            ],
-                                            placeholder="Location",
-                                        )
-                                    ],
-                                ),
-                                html.Div(
-                                    className="div-for-dropdown",
-                                    children=[
-                                        # Dropdown to select times
-                                        dcc.Dropdown(
-                                            id="bar-selector",
-                                            options=[
-                                                {
-                                                    "label": str(n) + ":00",
-                                                    "value": str(n),
-                                                }
-                                                for n in range(24)
-                                            ],
-                                            multi=True,
-                                            placeholder="Select certain hours",
-                                        )
-                                    ],
-                                ),
-                            ],
-                        ),
-                        html.P(id="total-detections"),
-                        #html.P(id="total-selection-detections"),
-                        html.P(id="date-value"),
-                    ],
-                ),
-                # Column for app graphs and plots
+                    dbc.CardHeader(
+                        "Total detections:",
+                        style={
+                            "text-align": "left",
+                            "color": "white",
+                            "font-size": 24,
+                        },
+                    ),
+                    dbc.CardBody(
+                        [
+                            daq.LEDDisplay(
+                                id="rul-estimation-indicator-led",
+                                size=172,
+                                color="#80E41D",
+                                style={"color": "#black"},
+                                backgroundColor="#2b2b2b",
+                                value="0.0",
+                            )
+                        ],
+                        style={
+                            "text-align": "left",
+                            "width": "auto"
+                        },
+                    ),
+                ]
+            ),
+        html.Div(
+            #className="row",
+            children=[
                 html.Div(
                     className="eight columns div-for-charts bg-grey",
                     children=[
-                        # html.Div(id='live-update-text'),
-                        # dcc.Interval(
-                        #     id='interval-component',
-                        #     interval=1 * 1000,  # in milliseconds
-                        #     n_intervals=0
-                        # ),
                         dcc.Graph(id="map-graph"),
-                        # html.Div(
-                        #     className="text-padding",
-                        #     children=[
-                        #         "Select any of the bars on the histogram to section data by time."
-                        #     ],
-                        # ),
                         dcc.Graph(id="histogram")
                     ],
                 ),
@@ -408,31 +361,29 @@ def get_selection(year, month, day, selection):
     return [np.array(xVal), np.array(yVal), np.array(colorVal)]
 
 # Selected Data in the Histogram updates the Values in the Hours selection dropdown menu
-@app.callback(
-    Output("bar-selector", "value"),
-    [Input("histogram", "selectedData"), Input("histogram", "clickData")]
-)
-def update_bar_selector(value, clickData):
-    holder = []
-    if clickData:
-        holder.append(str(int(clickData["points"][0]["x"])))
-    if value:
-        for x in value["points"]:
-            holder.append(str(int(x["x"])))
-    return list(set(holder))
+# @app.callback(
+#     Output("bar-selector", "value"),
+#     [Input("histogram", "selectedData"), Input("histogram", "clickData")]
+# )
+# def update_bar_selector(value, clickData):
+#     holder = []
+#     if clickData:
+#         holder.append(str(int(clickData["points"][0]["x"])))
+#     if value:
+#         for x in value["points"]:
+#             holder.append(str(int(x["x"])))
+#     return list(set(holder))
 
 
 # Clear Selected Data if Click Data is used
-@app.callback(Output("histogram", "selectedData"), [Input("histogram", "clickData")])
-def update_selected_data(clickData):
-    if clickData:
-        return {"points": []}
+# @app.callback(Output("histogram", "selectedData"), [Input("histogram", "clickData")])
+# def update_selected_data(clickData):
+#     if clickData:
+#         return {"points": []}
 
 
-# Update the total persons tag
-@app.callback(Output("total-detections", "children"), [Input("date-picker", "date"),
-                                                       Input("interval-component", "n_intervals")])
-def update_total_detections(datePicked, n):
+@app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
+def update_total_detections(n):
     df1 = pd.read_csv(
         "TrafficData_Rand.csv",
         dtype=object,
@@ -441,83 +392,82 @@ def update_total_detections(datePicked, n):
         "Time_Location_Rand_People.csv",
         dtype=object,
     )
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    qualified_dates = []
+    #date_picked = dt.strptime(datePicked, "%Y-%m-%d")
+    #qualified_dates = []
     all_times_dates = extract_all_times(df1, df2)
-    for time in all_times_dates:
-        if (date_picked.year == int(time[0:4])
-                and date_picked.month == int(time[4:6])
-                and date_picked.day == int(time[6:8])
-        ):
-            qualified_dates.append(time)
-    return "Total Number of detections on day selected: {:,d}".format(
-        len(qualified_dates)
-    )
+    #for time in all_times_dates:
+        # if (date_picked.year == int(time[0:4])
+        #         and date_picked.month == int(time[4:6])
+        #         and date_picked.day == int(time[6:8])
+        # ):
+        #     qualified_dates.append(time)
+    return len(all_times_dates)
 
+def item_counter(dataFrame, domain):
+    item_counter = []
+    for item in domain:
+        count = 0
+        for n in range(len(dataFrame[item])):
+            if dataFrame[item][n] == 'TRUE':
+                count += 1
+        item_counter.append(count)
+    return(item_counter)
 
-# Update the total number of detections in selected times
-# @app.callback(
-#     [Output("total-selection-detections", "children"), Output("date-value", "children")],
-#     [Input("date-picker", "date"), Input("bar-selector", "value")],
-# )
-# def update_total_detection_selection(datePicked, selection):
-#     firstOutput = ""
-#
-#     if selection is not None or len(selection) is not 0:
-#         date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-#         totalInSelection = 0
-#         for x in selection:
-#             totalInSelection += len(
-#                 totalList[date_picked.month - 4][date_picked.day - 1][
-#                     totalList[date_picked.month - 4][date_picked.day - 1].index.hour
-#                     == int(x)
-#                 ]
-#             )
-#         firstOutput = "Total detections in selection: {:,d}".format(totalInSelection)
-#
-#     if (
-#         datePicked is None
-#         or selection is None
-#         or len(selection) is 24
-#         or len(selection) is 0
-#     ):
-#         return firstOutput, (datePicked, " - showing hour(s): All")
-#
-#     holder = sorted([int(x) for x in selection])
-#
-#     if holder == list(range(min(holder), max(holder) + 1)):
-#         return (
-#             firstOutput,
-#             (
-#                 datePicked,
-#                 " - showing hour(s): ",
-#                 holder[0],
-#                 "-",
-#                 holder[len(holder) - 1],
-#             ),
-#         )
-#
-#     holder_to_string = ", ".join(str(x) for x in holder)
-#     return firstOutput, (datePicked, " - showing hour(s): ", holder_to_string)
-
-
-# Update Histogram Figure based on Month, Day and Times Chosen
+def get_bar_color(domain):
+    colors = [
+        "#F4EC15",
+        "#DAF017",
+        "#BBEC19",
+        "#9DE81B",
+        "#80E41D",
+        "#66E01F",
+        "#4CDC20",
+        "#34D822",
+        "#24D249",
+        "#25D042",
+        "#26CC58",
+        "#28C86D",
+        "#29C481",
+        "#2AC093",
+        "#2BBCA4",
+        "#2BB5B8",
+        "#2C99B4",
+        "#2D7EB0",
+        "#2D65AC",
+        "#2E4EA4",
+        "#2E38A4",
+        "#3B2FA0",
+        "#4E2F9C",
+        "#603099",
+    ]
+    colorVal = []
+    for n in range(len(domain)):
+        colorVal.append(colors[n])
+    return colorVal
 
 @app.callback(
     Output("histogram", "figure"),
-    [Input("date-picker", "date"), Input("bar-selector", "value"),
-     Input("interval-component", "n_intervals")]
+    [Input("interval-component", "n_intervals")]
 )
-def update_histogram_live(datePicked, value, n):
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month #- 4
-    dayPicked = date_picked.day #- 1
-    yearPicked = date_picked.year
+def update_histogram_live(n):
+    # date_picked = dt.strptime(datePicked, "%Y-%m-%d")
+    # monthPicked = date_picked.month #- 4
+    # dayPicked = date_picked.day #- 1
+    # yearPicked = date_picked.year
+    #[xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
 
-    [xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+
+    xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT']
+    yVal = np.array(item_counter(df2, xVal))
+    colorVal = np.array(get_bar_color(xVal))
+
 
     layout = go.Layout(
-        bargap=0.01,
+        bargap=0.05,
         bargroupgap=0,
         barmode="group",
         margin=go.layout.Margin(l=10, r=0, t=0, b=50),
@@ -527,14 +477,14 @@ def update_histogram_live(datePicked, value, n):
         dragmode="select",
         font=dict(color="white"),
         xaxis=dict(
-            range=[-0.5, 23.5],
+            range=[-1, len(xVal)],
             showgrid=False,
             nticks=25,
             fixedrange=True,
-            ticksuffix=":00",
+            ticksuffix="",
         ),
         yaxis=dict(
-            range=[0, max(yVal) + max(yVal) / 4],
+            range=[0, max(yVal)+10],
             showticklabels=False,
             showgrid=False,
             fixedrange=True,
@@ -625,8 +575,8 @@ def create_map_df(df_with_coords):
         for m in range(len(df_with_coords["LAT"])):
             if (df_with_coords["LAT"][m] == lats_longs[n][0] and
                     df_with_coords["LONG"][m] == lats_longs[n][1]):
-                ID_list.append(df_with_coords["IDnumber"][m])
-                labels.append(df_with_coords["LABELS"][m])
+                ID_list.append(df_with_coords["ID"][m])
+                labels.append(df_with_coords["LABEL"][m])
         list_ID_list.append(ID_list)
         list_labels_lists.append(labels)
     number_of_detections = [] #creates number of detections column in df5
@@ -652,40 +602,63 @@ def create_map_df(df_with_coords):
         )
     return df5
 
+def get_text(map_df1, map_df2):
+    labels = list(map_df1.LABELS) + list(map_df2.LABELS)
+    total_detections = list(map_df1.DETECTIONS) + list(map_df2.DETECTIONS)
+    text = []
+    for n in range(len(labels)): #obj is a list in a list of label lists
+        if len(labels[n]) == 1:
+            text.append(labels[n])
+        if len(labels[n]) != 1:
+            text.append(total_detections[n])
+    return text
+
 # Update Map Graph based on date-picker, selected data on histogram and location dropdown
 @app.callback(
     Output("map-graph", "figure"),
     [
-        Input("date-picker", "date"),
-        Input("bar-selector", "value"),
-        Input("location-dropdown", "value")
+        Input("interval-component", "n_intervals"),
     ],
 )
-def update_graph(datePicked, selectedData, selectedLocation):#date, time in string format, location
+def update_graph(n):#date, time in string format, location
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+
+    ##this makes dataframes that are compatible with map
+    df1_new = create_map_df(df1)
+    df2_new = create_map_df(df2)
+
+    vehicle_lats = list(df1_new.LAT)
+    person_lats = list(df2_new.LAT)
+    veh_per_lats = vehicle_lats + person_lats
+    vehicle_longs = list(df1_new.LONG)
+    person_longs = list(df2_new.LONG)
+    veh_per_longs = vehicle_longs + person_longs
+
+    vehicle_colors = list(df1_new.COLOR)
+    person_colors = list(df2_new.COLOR)
+    veh_per_colors = vehicle_colors + person_colors
+
     zoom = 12.0
     latInitial = 34.83363
     lonInitial = -79.18255
     bearing = 0
 
-    if selectedLocation:
-        zoom = 15.0
-        latInitial = important_locations[selectedLocation]["lat"]
-        lonInitial = important_locations[selectedLocation]["lon"]
-
-    date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    monthPicked = date_picked.month #- 4
-    dayPicked = date_picked.day #- 1
-    filteredCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
-    listCoords = create_map_df(filteredCoords)
     return go.Figure(
         data=[
             Scattermapbox(
-                lat=listCoords.LAT,
-                lon=listCoords.LONG,
+                lat=veh_per_lats,
+                lon=veh_per_longs,
                 mode="markers",
                 hoverinfo="lat+lon+text",
-                text=listCoords['LABELS'],
-                marker=dict(size=5, color=listCoords["COLOR"], allowoverlap=True)
+                text=get_text(df1_new, df2_new),
+                marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
                 ),
             Scattermapbox( #double check things are picked up at ETI
                 lat=[important_locations[i]["lat"] for i in important_locations],

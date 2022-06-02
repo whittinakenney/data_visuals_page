@@ -16,10 +16,8 @@ from plotly.graph_objs import *
 from datetime import datetime as dt
 import pandas as pd
 from pymongo import MongoClient
-import cdata.mongodb as mod
+#import cdata.mongodb as mod
 
-##database
-client = MongoClient('45.79.221.195', 27017)
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}],
@@ -48,24 +46,18 @@ important_locations = {
 #     "N-Factor_RandomGenerated .csv"
 # )
 
-db = client['test-database']
-posts = db.posts
-
-##this gets done on Jackson's end
-df_vehicles = pd.read_csv('TrafficData_Rand.csv') #df1 corresponds to vehicles
-post1 = df_vehicles.to_dict(orient='split')
-
-df_people = pd.read_csv('Time_Location_Rand_People.csv') #df2 corresponds to people
-post2 = df_people.to_dict(orient='split')
-
-post_id1 = posts.insert_one(post1).inserted_id  # grabbing vehicle data
-post_id2 = posts.insert_one(post2).inserted_id  # grabbing person data
-
 def get_posts():
+    ##write a function that grabs vehicle and person data from database
+    client = MongoClient('45.79.221.195', 27017)
     db = client['test-database']
-    return (post_id1, post_id2) #post_id1 needs to be vehicles and #post_id2 needs to be people
+    collection = 'posts'
+    cursor1 = db[collection].find({})#vehicle
+    cursor2 = db[collection].find({})#person
+    df1 = pd.DataFrame(list(cursor))
+    df2 = pd.DataFrame(list(cursor))
+    return (df1, df2) #post_id1 needs to be vehicles and #post_id2 needs to be people
 
-def reload_dataframe():
+def reload_dataframe(): #may not need
     ##may need to set new_df1 and new_df2 equal to collections instead
     db = client['test-database']
     posts = db.posts

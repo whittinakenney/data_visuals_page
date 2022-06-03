@@ -413,7 +413,9 @@ def get_selection(year, month, day, selection):
     [Input("histogram", "selectedData"), Input("histogram", "clickData")]
 )
 def update_bar_selector(value, clickData):
+    print(clickData)
     holder = []
+    print(clickData)
     if clickData:
         holder.append(str(int(clickData["points"][0]["x"])))
     if value:

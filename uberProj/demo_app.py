@@ -11,6 +11,9 @@ from plotly.graph_objs import *
 from datetime import datetime as dt
 import dash_daq as daq
 import dash_bootstrap_components as dbc
+import plotly.express as px
+
+##must manually add x-values (i.e. "FEMALE") in update_histogram_live
 
 
 app = dash.Dash(
@@ -27,19 +30,6 @@ mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZT
 important_locations = {
     "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246}
 }
-
-# #Read CSV files
-# df1 = pd.read_csv(
-#     "TrafficData_Rand.csv",
-#     dtype=object,
-# )
-# df2 = pd.read_csv(
-#     "Time_Location_Rand_People.csv",
-#     dtype=object,
-# )
-# df3 = pd.read_csv(
-#     "N-Factor_RandomGenerated .csv"
-# )
 
 #Maximum Date from data
 def extract_all_times(df1, df2):
@@ -207,14 +197,14 @@ app.layout = html.Div(
                         style={
                             "text-align": "left",
                             "color": "white",
-                            "font-size": 24,
+                            "font-size": 18,
                         },
                     ),
                     dbc.CardBody(
                         [
                             daq.LEDDisplay(
                                 id="rul-estimation-indicator-led",
-                                size=172,
+                                size=165,
                                 color="#80E41D",
                                 style={"color": "#black"},
                                 backgroundColor="#2b2b2b",
@@ -226,6 +216,16 @@ app.layout = html.Div(
                             "width": "auto"
                         },
                     ),
+                    html.Div([
+                        html.Button('Reset Bar Selection', id='btn-nclicks-1', n_clicks=0),
+                        html.Div(id='container-button-timestamp')
+                    ]),
+                    dcc.Graph(id="gender-pie",
+                        style={
+                            "text-align": "left",
+                            "width": "auto"
+                         }
+                              ),
                 ]
             ),
         html.Div(
@@ -243,6 +243,15 @@ app.layout = html.Div(
     ]
 )
 
+@app.callback(
+    [Output('btn-nclicks-1', 'n_clicks'), Output('histogram', 'clickData')],
+    [Input('btn-nclicks-1', 'n_clicks'), Input('histogram', 'clickData')]
+)
+def update_output(n_clicks, clickData):
+    if n_clicks >= 1:
+        clickData = None
+        n_clicks = 0
+    return n_clicks, clickData
 # Gets the amount of days in the specified month
 # Index represents month (0 is Jan, 1 is Feb, ... etc.)
 daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -251,45 +260,6 @@ daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
-# @app.callback(Output('live-update-csv', 'children'),
-#               Input('interval-component', 'n_intervals'))
-# def update_dataframes(n):
-#     columns1 = list(df1.columns)
-#     columns2 = list(df2.columns)
-#     columns3 = list(df3.columns)
-#     df1 = pd.read_csv('TrafficData_Rand.csv', header = None, names=columns1)
-#     df2 = pd.read_csv('Time_Location_Rand_People.csv', header = None, names=columns2)
-#     df3 = pd.read_csv('N-Factor_RandomGenerated .csv', header = None, names=columns3)
-
-## Get the amount of images captured based on the time selected ##
-
-#This function takes a chosen date and returns a list of the hour
-#each detection was detected
-#for example: if three people were detected at 9AM on 5/23/2022,
-#it would return [9, 9, 9]
-# def people_by_date(year, month, day):
-#     time_from_date = []
-#     for date in all_times_dates:
-#         if int(date[0:4]) == year and int(date[4:6]) == month and int(date[6:8]) == day:
-#             time_from_date.append(int(date[9:11]))
-#     return time_from_date
-
-#function that takes a list of hours and tells returns how many instances
-#of each hour.
-#the idea is to filter IDs by a date first, then search for each of those ID's
-#corresponding times so we can get a count of people on a certain date at a certain time
-# def by_time(list_of_hours):
-#     traffic_by_time = {}
-#     for m in range(len(list_of_hours)):
-#         for n in range(0,24):
-#             traffic_by_time[n] = list_of_hours.count(n)
-#     return(traffic_by_time)
-
-#this functions takes the chosen year, month, and date
-#Then, it finds all instances in database that match
-#Then, it lists all the hours those instance occured
-#Ex: two people were detected at 9 on jan 23, 2022, it would list [9, 9]
-#Finally, it counts the occurence of each hour so [9, 9] would return [2]
 def count_per_hour(year, month, day):
     df1 = pd.read_csv(
         "TrafficData_Rand.csv",
@@ -360,7 +330,7 @@ def get_selection(year, month, day, selection):
         yVal = count_per_hour(year, month, day)
     return [np.array(xVal), np.array(yVal), np.array(colorVal)]
 
-# Selected Data in the Histogram updates the Values in the Hours selection dropdown menu
+#Selected Data in the Histogram updates map
 # @app.callback(
 #     Output("bar-selector", "value"),
 #     [Input("histogram", "selectedData"), Input("histogram", "clickData")]
@@ -413,7 +383,7 @@ def item_counter(dataFrame, domain):
         item_counter.append(count)
     return(item_counter)
 
-def get_bar_color(domain):
+def get_bar_color(domain, clickData):
     colors = [
         "#F4EC15",
         "#DAF017",
@@ -442,14 +412,22 @@ def get_bar_color(domain):
     ]
     colorVal = []
     for n in range(len(domain)):
-        colorVal.append(colors[n])
+        if clickData != None:
+            selectedFeature = clickData["points"][0]["x"]
+        else:
+            selectedFeature = None
+        if domain[n] == selectedFeature:
+            colorVal.append("#FFFFFF")
+        else:
+            colorVal.append(colors[n])
     return colorVal
 
 @app.callback(
     Output("histogram", "figure"),
-    [Input("interval-component", "n_intervals")]
+    [Input("interval-component", "n_intervals"),
+     Input("histogram", "clickData")]
 )
-def update_histogram_live(n):
+def update_histogram_live(n, clickData):
     # date_picked = dt.strptime(datePicked, "%Y-%m-%d")
     # monthPicked = date_picked.month #- 4
     # dayPicked = date_picked.day #- 1
@@ -461,9 +439,9 @@ def update_histogram_live(n):
         dtype=object,
     )
 
-    xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT']
+    xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT', 'FEMALE', 'MALE']
     yVal = np.array(item_counter(df2, xVal))
-    colorVal = np.array(get_bar_color(xVal))
+    colorVal = np.array(get_bar_color(xVal, clickData))
 
 
     layout = go.Layout(
@@ -561,6 +539,8 @@ def getLatLonColor(selectedData, month, day):
 def create_map_df(df_with_coords):
     lats = list(df_with_coords["LAT"])
     longs = list(df_with_coords['LONG'])
+    ID_nums = list(df_with_coords["ID"])
+    label_column = list(df_with_coords['LABEL'])
     list_ID_list = [] #creates df5 IDs column
     list_labels_lists = [] #creates labels column in df5
     colors = [] #creates colors column of df5
@@ -573,10 +553,10 @@ def create_map_df(df_with_coords):
         ID_list = []
         labels = []
         for m in range(len(df_with_coords["LAT"])):
-            if (df_with_coords["LAT"][m] == lats_longs[n][0] and
-                    df_with_coords["LONG"][m] == lats_longs[n][1]):
-                ID_list.append(df_with_coords["ID"][m])
-                labels.append(df_with_coords["LABEL"][m])
+            if (lats[m] == lats_longs[n][0] and
+                    longs[m] == lats_longs[n][1]):
+                ID_list.append(ID_nums[m])
+                labels.append(label_column[m])
         list_ID_list.append(ID_list)
         list_labels_lists.append(labels)
     number_of_detections = [] #creates number of detections column in df5
@@ -587,7 +567,7 @@ def create_map_df(df_with_coords):
         if len(label_list) == 1 and label_list == ['vehicle']:
             colors.append('#FFFFFF')
         elif len(label_list) == 1 and label_list == ['person']:
-            colors.append('#8607A9')
+            colors.append('#2BB5B8')
         else:
             colors.append('#7FFF00')
     zipped = list(zip(number_of_detections, unique_lats, unique_longs,
@@ -613,14 +593,11 @@ def get_text(map_df1, map_df2):
             text.append(total_detections[n])
     return text
 
-# Update Map Graph based on date-picker, selected data on histogram and location dropdown
-@app.callback(
-    Output("map-graph", "figure"),
-    [
-        Input("interval-component", "n_intervals"),
-    ],
-)
-def update_graph(n):#date, time in string format, location
+def map_filter(clickData):
+    person_feature = clickData["points"][0]["x"]
+    return person_feature
+
+def map_xval_yval(clickData):
     df1 = pd.read_csv(
         "TrafficData_Rand.csv",
         dtype=object,
@@ -629,21 +606,51 @@ def update_graph(n):#date, time in string format, location
         "Time_Location_Rand_People.csv",
         dtype=object,
     )
+    if clickData != None:
+        person_feature = map_filter(clickData)
+        #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
+        df2_by_feat = df2.loc[df2[person_feature] == 'TRUE']
+        #df1_new = create_map_df(df1_by_feat)
+        df1_new = create_map_df(df1)
+        df2_new = create_map_df(df2_by_feat)
 
-    ##this makes dataframes that are compatible with map
-    df1_new = create_map_df(df1)
-    df2_new = create_map_df(df2)
+        vehicle_lats = list(df1_new.LAT)
+        person_lats = list(df2_new.LAT)
+        veh_per_lats = vehicle_lats + person_lats
+        vehicle_longs = list(df1_new.LONG)
+        person_longs = list(df2_new.LONG)
+        veh_per_longs = vehicle_longs + person_longs
 
-    vehicle_lats = list(df1_new.LAT)
-    person_lats = list(df2_new.LAT)
-    veh_per_lats = vehicle_lats + person_lats
-    vehicle_longs = list(df1_new.LONG)
-    person_longs = list(df2_new.LONG)
-    veh_per_longs = vehicle_longs + person_longs
+        vehicle_colors = list(df1_new.COLOR)
+        person_colors = list(df2_new.COLOR)
+        veh_per_colors = vehicle_colors + person_colors
+    else:
+        df1_new = create_map_df(df1)
+        df2_new = create_map_df(df2)
 
-    vehicle_colors = list(df1_new.COLOR)
-    person_colors = list(df2_new.COLOR)
-    veh_per_colors = vehicle_colors + person_colors
+        vehicle_lats = list(df1_new.LAT)
+        person_lats = list(df2_new.LAT)
+        veh_per_lats = vehicle_lats + person_lats
+        vehicle_longs = list(df1_new.LONG)
+        person_longs = list(df2_new.LONG)
+        veh_per_longs = vehicle_longs + person_longs
+
+        vehicle_colors = list(df1_new.COLOR)
+        person_colors = list(df2_new.COLOR)
+        veh_per_colors = vehicle_colors + person_colors
+    return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
+
+# Update Map Graph based on date-picker, selected data on histogram and location dropdown
+@app.callback(
+    Output("map-graph", "figure"),
+    [
+        Input("interval-component", "n_intervals"),
+        Input("histogram", "clickData")
+    ],
+)
+def update_graph(n, clickData):#date, time in string format, location
+
+    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval(clickData)
 
     zoom = 12.0
     latInitial = 34.83363
@@ -687,7 +694,7 @@ def update_graph(n):#date, time in string format, location
                             dict(
                                 args=[
                                     {
-                                        "mapbox.zoom": 12,
+                                        #"mapbox.zoom": 12,
                                         "mapbox.center.lon": "-79.18255",
                                         "mapbox.center.lat": "34.83363",
                                         "mapbox.bearing": 0,
@@ -716,44 +723,51 @@ def update_graph(n):#date, time in string format, location
         ),
     )
 
-# @app.callback(
-#     Output("Nfactor-graph", "figure"),
-#     [
-#         Input("date-picker", "date"),
-#         Input("bar-selector", "value"),
-#         Input("interval-component", "n_intervals")
-#     ],
-# )
+def percent_sex(people_df):
+    count = 0
+    bool_list = people_df['FEMALE']
+    for bool in bool_list:
+        if bool == "TRUE":
+            count += 1
+    percent_female = count/len(bool_list)
+    percent_male = 100 - percent_female
+    return percent_female, percent_male
 
-# def update_Nfactor(datePicked, selectedData, n):
-#     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-#     monthPicked = date_picked.month #- 4
-#     dayPicked = date_picked.day #- 1
-#     yearPicked = date_picked.year
-#
-#     listCoords = getLatLonColor(selectedData, monthPicked, dayPicked)
-#     #[xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
-#     x = list(data["PersonID"])
-#     sig_vector = [.25, .25, .25, .25] #must be same size as number of characteristics and add to 1
-#
-#     characteristics = list(data.columns[1:])
-#     unit_column_vectors = []
-#
-#     for m in range(len(characteristics)): #scales each column vectors by sig_vector
-#         column_m_times_sig_m = data[characteristics[m]] * sig_vector[m]
-#         unit_column_vectors.append(column_m_times_sig_m)
-#
-#     for n in range(len(characteristics)): #takes every person except the first and finds its characteristic composition
-#         if n == 0:
-#             fig = go.Figure(go.Bar(x=x, y=unit_column_vectors[n], name=characteristics[n]))
-#         else:
-#             fig.add_trace(go.Bar(x=x, y=unit_column_vectors[n], name=characteristics[n]))
-#
-#     fig.update_layout(barmode='stack', xaxis={'categoryorder':'category ascending'},
-#                       title="Total Confidence for Each Person's ID", paper_bgcolor = "#011311",
-#                       font_color="#BDEEE8", plot_bgcolor="#004C47", font_family="Georgia",
-#                       )
-#     fig.update_yaxes(gridcolor="#01726A")
+@app.callback(
+    Output("gender-pie", "figure"),
+    Input("interval-component", "n_intervals"))
+def update_sex_chart(n):
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+    percent_female, percent_male = percent_sex(df2)
+    percentages = [percent_female, percent_male]
+    sex = ["Female", "Male"]
+    zipped = list(zip(sex, percentages))
+    df = pd.DataFrame(zipped, columns=[
+        "SEX",
+        "%"]
+                       )
+    fig = px.pie(df, values='%', names='SEX', title='Detections by Sex:', color='SEX',
+                 color_discrete_map={'Female': '#F4EC15', 'Male': '#24D249'}, width=275, height=425)
+    colors = ['#BBEC19', '#2BB5B8']
+    fig.update_traces(textinfo='value', textfont_size=12,
+                      marker=dict(colors=colors, line=dict(color='#000000', width=1)))
+    fig.update_layout({'plot_bgcolor':'rgba(0, 0, 0, 0)', 'paper_bgcolor':'rgba(0, 0, 0, 0)'},
+                      font_color="white", margin=dict(l=0, r=20, t=20, b=0))
+    return fig
+
+
+# # Clear Selected Data if Click Data is used
+# @app.callback(Output("map-graph", "figure"), [Input("histogram", "clickData")])
+# def update_selected_data(clickData):
+#     if clickData:
+#         return {"points": []}
 
 if __name__ == "__main__":
     app.run_server(debug=True)

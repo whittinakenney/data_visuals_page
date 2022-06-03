@@ -192,40 +192,50 @@ app.layout = html.Div(
                             ),
                             href="https://plotly.com/dash/",
                         ),
-                    dbc.CardHeader(
-                        "Total detections:",
-                        style={
-                            "text-align": "left",
-                            "color": "white",
-                            "font-size": 18,
-                        },
+                    html.Div(
+                        className='div-for-LED',
+                        children=[
+                            dbc.CardHeader(
+                                "Total detections:",
+                                style={
+                                    "text-align": "left",
+                                    "color": "white",
+                                    "font-size": 18,
+                                },
+                            ),
+                            dbc.CardBody(
+                                [
+                                    daq.LEDDisplay(
+                                        id="rul-estimation-indicator-led",
+                                        size=148,
+                                        color="#80E41D",
+                                        style={"color": "#black"},
+                                        backgroundColor="#2b2b2b",
+                                        value="0.0",
+                                    )
+                                ],
+                                style={
+                                    "text-align": "left",
+                                    "width": "auto"
+                                },
+                            ),
+                            html.Div([
+                                html.Button('Reset Bar Selection', id='btn-nclicks-1', n_clicks=0),
+                                html.Div(id='container-button-timestamp')
+                            ]),
+                        ]
                     ),
-                    dbc.CardBody(
-                        [
-                            daq.LEDDisplay(
-                                id="rul-estimation-indicator-led",
-                                size=165,
-                                color="#80E41D",
-                                style={"color": "#black"},
-                                backgroundColor="#2b2b2b",
-                                value="0.0",
-                            )
-                        ],
-                        style={
-                            "text-align": "left",
-                            "width": "auto"
-                        },
-                    ),
-                    html.Div([
-                        html.Button('Reset Bar Selection', id='btn-nclicks-1', n_clicks=0),
-                        html.Div(id='container-button-timestamp')
-                    ]),
-                    dcc.Graph(id="gender-pie",
-                        style={
-                            "text-align": "left",
-                            "width": "auto"
-                         }
-                              ),
+                    html.Div(
+                        className='div-for-pie',
+                        children=[
+                            dcc.Graph(id="gender-pie",
+                                style={
+                                    "text-align": "left",
+                                    "width": "auto"
+                                }
+                            ),
+                        ]
+                    )
                 ]
             ),
         html.Div(
@@ -754,7 +764,7 @@ def update_sex_chart(n):
         "%"]
                        )
     fig = px.pie(df, values='%', names='SEX', title='Detections by Sex:', color='SEX',
-                 color_discrete_map={'Female': '#F4EC15', 'Male': '#24D249'}, width=275, height=425)
+                 color_discrete_map={'Female': '#F4EC15', 'Male': '#24D249'}, width=300, height=450)
     colors = ['#BBEC19', '#2BB5B8']
     fig.update_traces(textinfo='value', textfont_size=12,
                       marker=dict(colors=colors, line=dict(color='#000000', width=1)))

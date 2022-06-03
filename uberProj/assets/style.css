@@ -52,14 +52,14 @@ a {
   padding-left: 0px;
   padding-top: 55px;
 }
-.div-for-dropdown {
+.div-for-LED {
   padding-top: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 48px;
 }
 }
-.div-for-slider {
-  width: 97%;
-  text-align: center;
+.div-for-pie {
+  width: 100%;
+  text-align: left;
 }
 .logo {
   height: 35px;

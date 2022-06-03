@@ -739,7 +739,7 @@ def percent_sex(people_df):
     for bool in bool_list:
         if bool == "TRUE":
             count += 1
-    percent_female = count/len(bool_list)
+    percent_female = (count/len(bool_list)) * 100
     percent_male = 100 - percent_female
     return percent_female, percent_male
 
@@ -767,7 +767,7 @@ def update_sex_chart(n):
                  color_discrete_map={'Female': '#F4EC15', 'Male': '#24D249'}, width=300, height=450)
     colors = ['#BBEC19', '#2BB5B8']
     fig.update_traces(textinfo='value', textfont_size=12,
-                      marker=dict(colors=colors, line=dict(color='#000000', width=1)))
+                      marker=dict(colors=colors, line=dict(color='#FFFFFF', width=1)))
     fig.update_layout({'plot_bgcolor':'rgba(0, 0, 0, 0)', 'paper_bgcolor':'rgba(0, 0, 0, 0)'},
                       font_color="white", margin=dict(l=0, r=20, t=20, b=0))
     return fig

@@ -58,7 +58,8 @@ Taken from https://codepen.io/chriddyp/pen/bWLwgP.css
         width: 22%;
    }
     .four.columns {
-        width: 30.6666666667%;
+        width: 23.6666666667%;
+        originally 30.66666666
    }
     .five.columns {
         width: 39.3333333333%;
@@ -70,7 +71,8 @@ Taken from https://codepen.io/chriddyp/pen/bWLwgP.css
         width: 56.6666666667%;
    }
     .eight.columns {
-        width: 65.3333333333%;
+        width: 72.3333333333%;
+        originally 65.3333333
    }
     .nine.columns {
         width: 74.0%;

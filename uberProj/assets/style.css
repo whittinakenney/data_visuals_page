@@ -51,15 +51,30 @@ a {
 .div-user-controls {
   padding-left: 0px;
   padding-top: 55px;
+  align: left;
 }
 .div-for-LED {
+  padding-left: 40px;
   padding-top: 12px;
   padding-bottom: 48px;
 }
+.div-for-bar-panel {
+  padding-top: 24px;
+  padding-bottom: 48px;
 }
-.div-for-pie {
+}
+.div-for-gender-bar {
   width: 100%;
   text-align: left;
+}
+.div-for-car-bar {
+  width: 100%;
+  text-align: left;
+  padding-top: 100px;
+}
+.div-clear-button {
+  padding-left: 49px;
+
 }
 .logo {
   height: 35px;

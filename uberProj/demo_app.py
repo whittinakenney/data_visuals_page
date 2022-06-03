@@ -165,7 +165,7 @@ def data_frame4(df1, df2): ###more to be done
                       Vehicle_People_Labels
                       ))
     df4 = pd.DataFrame(zipped, columns=[
-        "IDnumber",
+        "ID",
         "TIME",
         "LAT",
         "LONG",
@@ -207,7 +207,7 @@ app.layout = html.Div(
                                 [
                                     daq.LEDDisplay(
                                         id="rul-estimation-indicator-led",
-                                        size=148,
+                                        size=48,
                                         color="#80E41D",
                                         style={"color": "#black"},
                                         backgroundColor="#2b2b2b",
@@ -219,33 +219,51 @@ app.layout = html.Div(
                                     "width": "auto"
                                 },
                             ),
-                            html.Div([
-                                html.Button('Reset Bar Selection', id='btn-nclicks-1', n_clicks=0),
-                                html.Div(id='container-button-timestamp')
-                            ]),
                         ]
                     ),
                     html.Div(
-                        className='div-for-pie',
-                        children=[
-                            dcc.Graph(id="gender-pie",
-                                style={
-                                    "text-align": "left",
-                                    "width": "auto"
-                                }
-                            ),
-                        ]
-                    )
-                ]
-            ),
+                            className='div-for-bar-panel',
+                            children=[
+                                html.Div(
+                                    className='div-for-gender-bar',
+                                    children=[
+                                        dcc.Graph(id="gender-bar",
+                                            style={
+                                                "text-align": "left",
+                                                "width": "auto"
+                                            }
+                                        ),
+                                    ]
+                                ),
+                                html.Div(
+                                    className='div-for-car-bar',
+                                    children=[
+                                        dcc.Graph(id="car-bar",
+                                                  style={
+                                                      "text-align": "left",
+                                                      "width": "auto"
+                                                  }
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                    # html.Div(
+                    #     className='div-clear-button',
+                    #     children=[
+                    #         html.Div([
+                    #             html.Button('Reset Bar Selection', id='btn-nclicks-1', n_clicks=0),
+                    #             html.Div(id='container-button-timestamp')])]
+                    # )
+                    ]
+                ),
         html.Div(
             #className="row",
             children=[
                 html.Div(
                     className="eight columns div-for-charts bg-grey",
                     children=[
-                        dcc.Graph(id="map-graph"),
-                        dcc.Graph(id="histogram")
+                        dcc.Graph(id="map-graph")
                     ],
                 ),
             ],
@@ -253,22 +271,24 @@ app.layout = html.Div(
     ]
 )
 
-@app.callback(
-    [Output('btn-nclicks-1', 'n_clicks'), Output('histogram', 'clickData')],
-    [Input('btn-nclicks-1', 'n_clicks'), Input('histogram', 'clickData')]
-)
-def update_output(n_clicks, clickData):
-    if n_clicks >= 1:
-        clickData = None
-        n_clicks = 0
-    return n_clicks, clickData
-# Gets the amount of days in the specified month
-# Index represents month (0 is Jan, 1 is Feb, ... etc.)
-daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-# Get index for the specified month in the dataframe
-monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
-                       "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
+# @app.callback(
+#     [Output('btn-nclicks-1', 'n_clicks'), Output('gender-bar', 'clickData')],
+#     [Input('btn-nclicks-1', 'n_clicks'), Input('gender-bar', 'clickData')]
+# )
+# def update_output(n_clicks, clickData):
+#     print(clickData)
+#     if n_clicks >= 1:
+#         clickData = None
+#         #clickData2 = None
+#         n_clicks = 0
+#     return n_clicks, clickData
+# # Gets the amount of days in the specified month
+# # Index represents month (0 is Jan, 1 is Feb, ... etc.)
+# daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+#
+# # Get index for the specified month in the dataframe
+# monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
+#                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
 def count_per_hour(year, month, day):
     df1 = pd.read_csv(
@@ -393,7 +413,7 @@ def item_counter(dataFrame, domain):
         item_counter.append(count)
     return(item_counter)
 
-def get_bar_color(domain, clickData):
+def get_bar_color(domain):
     colors = [
         "#F4EC15",
         "#DAF017",
@@ -421,93 +441,92 @@ def get_bar_color(domain, clickData):
         "#603099",
     ]
     colorVal = []
-    for n in range(len(domain)):
-        if clickData != None:
-            selectedFeature = clickData["points"][0]["x"]
-        else:
-            selectedFeature = None
-        if domain[n] == selectedFeature:
-            colorVal.append("#FFFFFF")
-        else:
-            colorVal.append(colors[n])
+    # for n in range(len(domain)):
+    #     if clickData != None:
+    #         selectedFeature = clickData["points"][0]["x"]
+    #     else:
+    #         selectedFeature = None
+    #     if domain[n] == selectedFeature:
+    #         colorVal.append("#FFFFFF")
+    #     else:
+    #         colorVal.append(colors[n])
     return colorVal
 
-@app.callback(
-    Output("histogram", "figure"),
-    [Input("interval-component", "n_intervals"),
-     Input("histogram", "clickData")]
-)
-def update_histogram_live(n, clickData):
-    # date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-    # monthPicked = date_picked.month #- 4
-    # dayPicked = date_picked.day #- 1
-    # yearPicked = date_picked.year
-    #[xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
-
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
-
-    xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT', 'FEMALE', 'MALE']
-    yVal = np.array(item_counter(df2, xVal))
-    colorVal = np.array(get_bar_color(xVal, clickData))
-
-
-    layout = go.Layout(
-        bargap=0.05,
-        bargroupgap=0,
-        barmode="group",
-        margin=go.layout.Margin(l=10, r=0, t=0, b=50),
-        showlegend=False,
-        plot_bgcolor="#323130",
-        paper_bgcolor="#323130",
-        dragmode="select",
-        font=dict(color="white"),
-        xaxis=dict(
-            range=[-1, len(xVal)],
-            showgrid=False,
-            nticks=25,
-            fixedrange=True,
-            ticksuffix="",
-        ),
-        yaxis=dict(
-            range=[0, max(yVal)+10],
-            showticklabels=False,
-            showgrid=False,
-            fixedrange=True,
-            rangemode="nonnegative",
-            zeroline=False,
-        ),
-        annotations=[
-            dict(
-                x=xi,
-                y=yi,
-                text=str(yi),
-                xanchor="center",
-                yanchor="bottom",
-                showarrow=False,
-                font=dict(color="white"),
-            )
-            for xi, yi in zip(xVal, yVal)
-        ],
-    )
-
-    return go.Figure(
-        data=[
-            go.Bar(x=xVal, y=yVal, marker=dict(color=colorVal), hoverinfo="x"),
-            go.Scatter(
-                opacity=0,
-                x=xVal,
-                y=yVal / 2,
-                hoverinfo="none",
-                mode="markers",
-                marker=dict(color="rgb(66, 134, 244, 0)", symbol="square", size=40),
-                visible=True,
-            ),
-        ],
-        layout=layout,
-    )
+# @app.callback(
+#     Output("histogram", "figure"),
+#     [Input("interval-component", "n_intervals")]
+# )
+# def update_histogram_live(n):
+#     # date_picked = dt.strptime(datePicked, "%Y-%m-%d")
+#     # monthPicked = date_picked.month #- 4
+#     # dayPicked = date_picked.day #- 1
+#     # yearPicked = date_picked.year
+#     #[xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
+#
+#     df2 = pd.read_csv(
+#         "Time_Location_Rand_People.csv",
+#         dtype=object,
+#     )
+#
+#     xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT', 'FEMALE', 'MALE']
+#     yVal = np.array(item_counter(df2, xVal))
+#     colorVal = np.array(get_bar_color(xVal))
+#
+#
+#     layout = go.Layout(
+#         bargap=0.05,
+#         bargroupgap=0,
+#         barmode="group",
+#         margin=go.layout.Margin(l=10, r=0, t=0, b=50),
+#         showlegend=False,
+#         plot_bgcolor="#323130",
+#         paper_bgcolor="#323130",
+#         dragmode="select",
+#         font=dict(color="white"),
+#         xaxis=dict(
+#             range=[-1, len(xVal)],
+#             showgrid=False,
+#             nticks=25,
+#             fixedrange=True,
+#             ticksuffix="",
+#         ),
+#         yaxis=dict(
+#             range=[0, max(yVal)+10],
+#             showticklabels=False,
+#             showgrid=False,
+#             fixedrange=True,
+#             rangemode="nonnegative",
+#             zeroline=False,
+#         ),
+#         annotations=[
+#             dict(
+#                 x=xi,
+#                 y=yi,
+#                 text=str(yi),
+#                 xanchor="center",
+#                 yanchor="bottom",
+#                 showarrow=False,
+#                 font=dict(color="white"),
+#             )
+#             for xi, yi in zip(xVal, yVal)
+#         ],
+#     )
+#
+#     return go.Figure(
+#         data=[
+#             go.Bar(x=xVal, y=yVal, marker=dict(color=colorVal), hoverinfo="x"),
+#             go.Scatter(
+#                 opacity=0,
+#                 x=xVal,
+#                 y=yVal / 2,
+#                 hoverinfo="none",
+#                 mode="markers",
+#                 marker=dict(color="rgb(66, 134, 244, 0)", symbol="square", size=40),
+#                 visible=True,
+#             ),
+#         ],
+#         layout=layout,
+#     )
 
 
 #Given date and time, this function will return a database with the ID, TIME, LAT, LONG, and LABEL
@@ -586,7 +605,7 @@ def create_map_df(df_with_coords):
         "DETECTIONS",
         "LAT",
         "LONG",
-        "IDnumber",
+        "ID",
         "LABELS",
         "COLOR"]
         )
@@ -594,20 +613,21 @@ def create_map_df(df_with_coords):
 
 def get_text(map_df1, map_df2):
     labels = list(map_df1.LABELS) + list(map_df2.LABELS)
+    Unique_IDs = list(map_df1.ID) + list(map_df2.ID)
     total_detections = list(map_df1.DETECTIONS) + list(map_df2.DETECTIONS)
     text = []
     for n in range(len(labels)): #obj is a list in a list of label lists
         if len(labels[n]) == 1:
-            text.append(labels[n])
+            text.append((labels[n], Unique_IDs[n]))
         if len(labels[n]) != 1:
-            text.append(total_detections[n])
+            text.append((total_detections[n], Unique_IDs[n]))
     return text
 
 def map_filter(clickData):
     person_feature = clickData["points"][0]["x"]
     return person_feature
 
-def map_xval_yval(clickData):
+def map_xval_yval():
     df1 = pd.read_csv(
         "TrafficData_Rand.csv",
         dtype=object,
@@ -616,51 +636,50 @@ def map_xval_yval(clickData):
         "Time_Location_Rand_People.csv",
         dtype=object,
     )
-    if clickData != None:
-        person_feature = map_filter(clickData)
-        #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
-        df2_by_feat = df2.loc[df2[person_feature] == 'TRUE']
-        #df1_new = create_map_df(df1_by_feat)
-        df1_new = create_map_df(df1)
-        df2_new = create_map_df(df2_by_feat)
+    # if clickData != None:
+    #     person_feature = map_filter(clickData)
+    #     #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
+    #     df2_by_feat = df2.loc[df2[person_feature] == 'TRUE']
+    #     #df1_new = create_map_df(df1_by_feat)
+    #     df1_new = create_map_df(df1)
+    #     df2_new = create_map_df(df2_by_feat)
+    #
+    #     vehicle_lats = list(df1_new.LAT)
+    #     person_lats = list(df2_new.LAT)
+    #     veh_per_lats = vehicle_lats + person_lats
+    #     vehicle_longs = list(df1_new.LONG)
+    #     person_longs = list(df2_new.LONG)
+    #     veh_per_longs = vehicle_longs + person_longs
+    #
+    #     vehicle_colors = list(df1_new.COLOR)
+    #     person_colors = list(df2_new.COLOR)
+    #     veh_per_colors = vehicle_colors + person_colors
+    # else:
+    df1_new = create_map_df(df1)
+    df2_new = create_map_df(df2)
 
-        vehicle_lats = list(df1_new.LAT)
-        person_lats = list(df2_new.LAT)
-        veh_per_lats = vehicle_lats + person_lats
-        vehicle_longs = list(df1_new.LONG)
-        person_longs = list(df2_new.LONG)
-        veh_per_longs = vehicle_longs + person_longs
+    vehicle_lats = list(df1_new.LAT)
+    person_lats = list(df2_new.LAT)
+    veh_per_lats = vehicle_lats + person_lats
+    vehicle_longs = list(df1_new.LONG)
+    person_longs = list(df2_new.LONG)
+    veh_per_longs = vehicle_longs + person_longs
 
-        vehicle_colors = list(df1_new.COLOR)
-        person_colors = list(df2_new.COLOR)
-        veh_per_colors = vehicle_colors + person_colors
-    else:
-        df1_new = create_map_df(df1)
-        df2_new = create_map_df(df2)
-
-        vehicle_lats = list(df1_new.LAT)
-        person_lats = list(df2_new.LAT)
-        veh_per_lats = vehicle_lats + person_lats
-        vehicle_longs = list(df1_new.LONG)
-        person_longs = list(df2_new.LONG)
-        veh_per_longs = vehicle_longs + person_longs
-
-        vehicle_colors = list(df1_new.COLOR)
-        person_colors = list(df2_new.COLOR)
-        veh_per_colors = vehicle_colors + person_colors
+    vehicle_colors = list(df1_new.COLOR)
+    person_colors = list(df2_new.COLOR)
+    veh_per_colors = vehicle_colors + person_colors
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
 # Update Map Graph based on date-picker, selected data on histogram and location dropdown
 @app.callback(
     Output("map-graph", "figure"),
     [
-        Input("interval-component", "n_intervals"),
-        Input("histogram", "clickData")
+        Input("interval-component", "n_intervals")
     ],
 )
-def update_graph(n, clickData):#date, time in string format, location
+def update_graph(n):#date, time in string format, location
 
-    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval(clickData)
+    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
 
     zoom = 12.0
     latInitial = 34.83363
@@ -744,7 +763,7 @@ def percent_sex(people_df):
     return percent_female, percent_male
 
 @app.callback(
-    Output("gender-pie", "figure"),
+    Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
     df1 = pd.read_csv(
@@ -763,21 +782,72 @@ def update_sex_chart(n):
         "SEX",
         "%"]
                        )
-    fig = px.pie(df, values='%', names='SEX', title='Detections by Sex:', color='SEX',
-                 color_discrete_map={'Female': '#F4EC15', 'Male': '#24D249'}, width=300, height=450)
     colors = ['#BBEC19', '#2BB5B8']
-    fig.update_traces(textinfo='value', textfont_size=12,
-                      marker=dict(colors=colors, line=dict(color='#FFFFFF', width=1)))
-    fig.update_layout({'plot_bgcolor':'rgba(0, 0, 0, 0)', 'paper_bgcolor':'rgba(0, 0, 0, 0)'},
-                      font_color="white", margin=dict(l=0, r=20, t=20, b=0))
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=['people'],
+        x=[percent_female],
+        name='Female',
+        orientation='h',
+        marker=dict(
+            color=colors[0],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+    fig.add_trace(go.Bar(
+        y=['people'],
+        x=[percent_male],
+        name='Male',
+        orientation='h',
+        marker=dict(
+            color=colors[1],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+
+    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 
+def percent_car_color(vehicle_df):
+    paint_list = list(vehicle_df['PAINT'])
+    colors = list(set(paint_list))
+    percents = []
+    for color in colors:
+        count = 0
+        for n in range(len(paint_list)):
+            if color == paint_list[n]:
+                count += 1
+        percent = (count/len(paint_list)) * 100
+        percents.append(percent)
+    return percents, colors
 
-# # Clear Selected Data if Click Data is used
-# @app.callback(Output("map-graph", "figure"), [Input("histogram", "clickData")])
-# def update_selected_data(clickData):
-#     if clickData:
-#         return {"points": []}
+@app.callback(
+    Output("car-bar", "figure"),
+    Input("interval-component", "n_intervals"))
+def update_car_bar(n):
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    percents, colors = percent_car_color(df1)
+    graph_colors = px.colors.sequential.Viridis
+    fig = go.Figure()
+    for n in range(len(percents)):
+        fig.add_trace(go.Bar(
+            y=['vehicles'],
+            x=[percents[n]],
+            name=colors[n],
+            orientation='h',
+            marker=dict(
+                color=graph_colors[n],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
+
+    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    return fig
 
 if __name__ == "__main__":
     app.run_server(debug=True)

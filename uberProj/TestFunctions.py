@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from plotly import graph_objs as go
 import uuid
 from datetime import datetime as dt
 
@@ -171,5 +172,166 @@ def map_xval_yval(clickData):
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
 clickData = {'points': [{'curveNumber': 0, 'pointNumber': 12, 'pointIndex': 12, 'x': "HAT", 'y': 2, 'label': 12, 'value': 2, 'marker.color': '#29C481', 'bbox': {'x0': 630.15, 'x1': 658.94, 'y0': 530, 'y1': 530}}]}
-print(map_filter(clickData))
-print(map_xval_yval(clickData))
+
+def percent_car_color(vehicle_df):
+    paint_list = list(vehicle_df['PAINT'])
+    colors = set(paint_list)
+    percents = []
+    for color in colors:
+        count = 0
+        for n in range(len(paint_list)):
+            if color == paint_list[n]:
+                count += 1
+        percent = (count/len(paint_list)) * 100
+        percents.append(percent)
+    return percents
+
+def item_counter(dataFrame, domain):
+    item_counter = {}
+    for item in domain:
+        count = 0
+        for n in range(len(dataFrame[item])):
+            if dataFrame[item][n] == 'TRUE':
+                count += 1
+        item_counter[item] = count
+    no_hats = len(dataFrame['HAT']) - item_counter['HAT']
+    item_counter['NO_HAT'] = no_hats
+    return(item_counter)
+
+def count_car_color(vehicle_df):
+    paint_list = list(vehicle_df['PAINT'])
+    colors = set(paint_list)
+    car_color_count = {}
+    for color in colors:
+        count = 0
+        for n in range(len(paint_list)):
+            if color == paint_list[n]:
+                count += 1
+        car_color_count[color] = count
+    return car_color_count
+
+# def get_y_lists(people_item_count, car_color_count, x):
+#     y_lists = {}
+#     for x_val in x:
+#         if x_val == 'top':
+#             y_lists[x_val]={'long_sleeve': people_item_count["LONG_SLEEVE"],
+#                             'short_sleeve': people_item_count['SHORT_SLEEVE'],
+#                             'shorts': 0,
+#                             'pants': 0,
+#                             'hats': 0,
+#                             'without_hats': 0,
+#                             'car color': 0
+#                             }
+#         if x_val == 'bottoms':
+#             y_lists[x_val] = {'long_sleeve': 0,
+#                               'short_sleeve': 0,
+#                               'shorts': people_item_count['SHORTS'],
+#                               'pants': people_item_count['PANTS'],
+#                               'hats': 0,
+#                               'without_hats': 0,
+#                               'car color': 0
+#                               }
+#         if x_val == 'hat':
+#             y_lists[x_val] = {'long_sleeve': 0,
+#                               'short_sleeve': 0,
+#                               'shorts': 0,
+#                               'pants': 0,
+#                               'hats': people_item_count['HAT'],
+#                               'without_hats': people_item_count['NO_HAT'],
+#                               'car color': 0
+#                               }
+#         if x_val == 'vehicle color':
+#             y_lists[x_val] = {'long_sleeve': 0,
+#                               'short_sleeve': 0,
+#                               'shorts': 0,
+#                               'pants': 0,
+#                               'hats': 0,
+#                               'without_hats': 0,
+#                               'car color': list(car_color_count.values())
+#                               }
+#     return y_lists
+#
+# def bar_graph(person_df, vehicle_df):
+#     x = ['top', 'bottoms', 'hat', 'vehicle color'] #same as names
+#     name_1 = ['long sleeve', 'short sleeve', 'shorts', 'pants', 'hats', 'no hats']
+#     people_variables = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT', 'FEMALE', 'MALE']
+#     people_item_count = item_counter(person_df, people_variables)
+#     paint_list = list(vehicle_df['PAINT'])
+#     vehicle_variables = list(set(paint_list))
+#     car_color_count = count_car_color(vehicle_df)
+#     names = name_1 + vehicle_variables
+#     print(names)
+#     y_lists = get_y_lists(people_item_count, car_color_count, x)
+#     print(y_lists)
+#     y_values = []
+#     for xval in x:
+#         y = list(y_lists[xval].values())
+#         if xval != 'vehicle color':
+#             zeroes = len(vehicle_variables) * [0]
+#             y.append(zeroes)
+#         y_values.append(y)
+#     print(y_values)
+#     fig = go.Figure(go.Bar(x=x, y=y_values[0], name=names[0]))
+#     fig.add_trace(go.Bar(x=x, y=[], name=names[n]))
+#     fig.update_layout(barmode='stack', xaxis={'categoryorder':'category ascending'})
+#     fig.show()
+# print(bar_graph(df2, df1))
+
+def percent_sex(people_df):
+    count = 0
+    bool_list = people_df['FEMALE']
+    for bool in bool_list:
+        if bool == "TRUE":
+            count += 1
+    percent_female = (count/len(bool_list)) * 100
+    percent_male = 100 - percent_female
+    return percent_female, percent_male
+
+# @app.callback(
+#     Output("gender-pie", "figure"),
+#     Input("interval-component", "n_intervals"))
+def update_sex_chart():
+    df1 = pd.read_csv(
+        "TrafficData_Rand.csv",
+        dtype=object,
+    )
+    df2 = pd.read_csv(
+        "Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+    percent_female, percent_male = percent_sex(df2)
+    percentages = [percent_female, percent_male]
+    sex = ["Female", "Male"]
+    zipped = list(zip(sex, percentages))
+    df = pd.DataFrame(zipped, columns=[
+        "SEX",
+        "%"]
+                       )
+    colors = ['#BBEC19', '#2BB5B8']
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=['people'],
+        x=[percent_female],
+        name='Female',
+        orientation='h',
+        marker=dict(
+            color=colors[0],
+            line=dict(color=colors[0], width=2)
+        )
+    ))
+    fig.add_trace(go.Bar(
+        y=['people'],
+        x=[percent_male],
+        name='Male',
+        orientation='h',
+        marker=dict(
+            color=colors[1],
+            line=dict(color=colors[1], width=2)
+        )
+    ))
+
+    fig.update_layout(barmode='stack', width=500, height=300)
+    fig.show()
+    return fig
+
+print(update_sex_chart())

@@ -56,7 +56,11 @@ a {
 .div-for-LED {
   padding-left: 40px;
   padding-top: 12px;
-  padding-bottom: 48px;
+  padding-bottom: 15px;
+}
+.div-split-detections {
+  padding-left: 25px;
+  padding-bottom: 50px;
 }
 .div-for-bar-panel {
   padding-top: 24px;
@@ -70,7 +74,8 @@ a {
 .div-for-car-bar {
   width: 100%;
   text-align: left;
-  padding-top: 100px;
+  padding-top: 75px;
+  padding-left: 0px;
 }
 .div-clear-button {
   padding-left: 49px;

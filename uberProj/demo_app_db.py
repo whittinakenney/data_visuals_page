@@ -12,8 +12,8 @@ from datetime import datetime as dt
 import dash_daq as daq
 import dash_bootstrap_components as dbc
 import plotly.express as px
-
 from pymongo import MongoClient
+import json
 
 
 ##must manually add x-values (i.e. "FEMALE") in update_histogram_live
@@ -27,6 +27,58 @@ server = app.server
 
 # Plotly mapbox public token
 mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZTNrbXU1OTN4NmJnYyJ9.GRJfLp1eHrnerFrpDqpzAw"
+
+class mongo_handler:
+    def __init__(self):
+        self.client = MongoClient('45.79.221.195', 27017)
+        self.db = self.client['detections']
+
+    def dataframe_to_dict(self, post):
+        dataframe = post.to_dict(orient='split')
+        return dataframe
+
+    def get_vehicles(self):
+        collection = self.db["vehicles"]
+        return collection
+
+    def get_people(self):
+        collection = self.db["people"]
+        return collection
+
+    def update_vehicles(self, post):
+        collection = self.db["vehicles"]
+        frame = self.dataframe_to_dict(post)
+        post_id = collection.insert_one(frame).inserted_id
+        print(post_id)
+        return post_id
+
+    def update_people(self, post):
+        collection = self.db["people"]
+        frame = self.dataframe_to_dict(post)
+        post_id = collection.insert_one(frame).inserted_id
+        print(post_id)
+        return post_id
+
+def example_update():
+    # Create an instance of the class
+    # This is needed to intialized class variables
+    md = mongo_handler()
+    # md.get_vehicles().drop()
+    # Create a pd to upload to the database
+    people = pd.read_csv('Time_Location_Rand_People.csv')
+    # Then we can update the database with the new data
+    md.update_people(people)
+    # Here we can do the same thing with vehicles
+    vehicles = pd.read_csv('TrafficData_Rand.csv')
+    md.update_vehicles(vehicles)
+    #pull data from db and convert to df
+    cursor = md.get_vehicles().find({})
+    table = cursor[0]
+    df1 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
+    cursor2 = md.get_people().find({})
+    table = cursor2[0]
+    df2 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
+    return df1, df2
 
 #important locations
 important_locations = {
@@ -57,15 +109,7 @@ def extract_times(df1, df2):
     return (all_years, all_months, all_hours)
 
 def max_date():
-    example_update()
-    # df1 = pd.read_csv(
-    #     "TrafficData_Rand.csv",
-    #     dtype=object,
-    # )
-    # df2 = pd.read_csv(
-    #     "Time_Location_Rand_People.csv",
-    #     dtype=object,
-    # )
+    df1, df2 = example_update()
     all_years, all_months, all_hours = extract_times(df1, df2)
     max_year = max(all_years)
     max_month = max(all_months) + 12
@@ -229,7 +273,8 @@ app.layout = html.Div(
                         children=[
                                 html.P(id="total-people-detections"),
                                 html.P(id="total-vehicle-detections"),
-                        ]
+                        ],
+                        style={"text-align": "left"}
                     ),
                     html.Div(
                             className='div-for-bar-panel',
@@ -301,17 +346,7 @@ app.layout = html.Div(
 #                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
 def count_per_hour(year, month, day):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
-    df3 = pd.read_csv(
-        "N-Factor_RandomGenerated .csv"
-    )
+    df1, df2 = example_update()
     hour_of_detection = []
     detections_by_hour = []
     df4 = data_frame4(df1, df2)
@@ -394,24 +429,14 @@ def get_selection(year, month, day, selection):
 
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     unique_detections = list(set(all_IDs(df1, df2)))
     return len(unique_detections)
 
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 
 def update_people_detections(n):
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     people_ids = df2.id
     unique_ids = list(set(people_ids))
     return "People detected: {:,d}".format(
@@ -421,10 +446,7 @@ def update_people_detections(n):
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 
 def update_vehicle_detections(n):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     vehicle_ids = df1.id
     unique_ids = list(set(vehicle_ids))
     return "Vehicles detected: {:,d}".format(
@@ -561,14 +583,7 @@ def get_bar_color(domain):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     all_times_dates = extract_all_times(df1, df2)
     df4 = data_frame4(df1, df2)
     include_rows = []
@@ -656,14 +671,7 @@ def map_filter(clickData):
     return person_feature
 
 def map_xval_yval():
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     # if clickData != None:
     #     person_feature = map_filter(clickData)
     #     #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
@@ -821,7 +829,7 @@ def update_sex_chart(n):
     fig = go.Figure()
     for n in range(len(sex)):
         fig.add_trace(go.Bar(
-            y=['people'],
+            y=['people  '],
             x=[percentages[n]],
             name=sex[n],
             orientation='h',
@@ -863,7 +871,7 @@ def update_car_bar(n):
     fig = go.Figure()
     for n in range(len(percents)):
         fig.add_trace(go.Bar(
-            y=['vehicles'],
+            y=['vehicles '],
             x=[percents[n]],
             name=colors[n],
             orientation='h',

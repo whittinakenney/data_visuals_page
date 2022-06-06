@@ -37,7 +37,8 @@ def example_update():
     # Create an instance of the class
     # This is needed to intialized class variables
     md = mongo_handler()
-    # md.get_vehicles().drop()
+    md.get_vehicles().drop()
+    md.get_people().drop()
     # Create a pd to upload to the database
     people = pd.read_csv('Time_Location_Rand_People.csv')
     # Then we can update the database with the new data
@@ -53,3 +54,6 @@ def example_update():
     table = cursor2[0]
     df2 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
     return df1, df2
+
+df1, df2 = example_update()
+print(df1)

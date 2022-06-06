@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import uuid
 
+from math import nan, isnan
 from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
@@ -49,20 +50,20 @@ class mongo_handler:
         collection = self.db["vehicles"]
         frame = self.dataframe_to_dict(post)
         post_id = collection.insert_one(frame).inserted_id
-        print(post_id)
         return post_id
 
     def update_people(self, post):
         collection = self.db["people"]
         frame = self.dataframe_to_dict(post)
         post_id = collection.insert_one(frame).inserted_id
-        print(post_id)
         return post_id
 
 def example_update():
     # Create an instance of the class
     # This is needed to intialized class variables
     md = mongo_handler()
+    md.get_vehicles().drop()
+    md.get_people().drop()
     # md.get_vehicles().drop()
     # Create a pd to upload to the database
     people = pd.read_csv('Time_Location_Rand_People.csv')
@@ -227,7 +228,7 @@ app.layout = html.Div(
         html.Div(id='live-update-csv'),
         dcc.Interval(
         id='interval-component',
-        interval=2.5*1000, # in milliseconds
+        interval=2.5*1000,# in milliseconds
         n_intervals=0),
         html.Div(
                 className="four columns div-user-controls",
@@ -430,8 +431,10 @@ def get_selection(year, month, day, selection):
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
     df1, df2 = example_update()
-    unique_detections = list(set(all_IDs(df1, df2)))
-    return len(unique_detections)
+    total_detections = all_IDs(df1, df2)
+    unique_detections = list(set(total_detections))
+    unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
+    return len(unique_det_without_nan)
 
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 
@@ -439,8 +442,9 @@ def update_people_detections(n):
     df1, df2 = example_update()
     people_ids = df2.id
     unique_ids = list(set(people_ids))
+    unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
     return "People detected: {:,d}".format(
-        len(unique_ids)
+        len(unique_ids_without_nan)
     )
 
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
@@ -449,8 +453,9 @@ def update_vehicle_detections(n):
     df1, df2 = example_update()
     vehicle_ids = df1.id
     unique_ids = list(set(vehicle_ids))
+    unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
     return "Vehicles detected: {:,d}".format(
-        len(unique_ids)
+        len(unique_ids_without_nan)
     )
 
 def item_counter(dataFrame, domain):
@@ -809,14 +814,7 @@ def percent_sex(people_df):
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
-    df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     percent_female, percent_male, percent_unknown = percent_sex(df2)
     percentages = [percent_female, percent_male, percent_unknown]
     sex = ["Female", "Male", "Unknown"]
@@ -846,26 +844,22 @@ def update_sex_chart(n):
 def percent_car_color(vehicle_df):
     paint_list = list(vehicle_df['paint'])
     colors = list(set(paint_list))
-    if 'null' in colors:
-        colors.remove('null')
+    colors_without_nan = [x for x in colors if pd.isnull(x) == False and x != 'nan']
     percents = []
-    for color in colors:
+    for color in colors_without_nan:
         count = 0
         for n in range(len(paint_list)):
             if color == paint_list[n]:
                 count += 1
         percent = (count/len(paint_list)) * 100
         percents.append(percent)
-    return percents, colors
+    return percents, colors_without_nan
 
 @app.callback(
     Output("car-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
-    df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
-        dtype=object,
-    )
+    df1, df2 = example_update()
     percents, colors = percent_car_color(df1)
     graph_colors = px.colors.sequential.Viridis
     fig = go.Figure()

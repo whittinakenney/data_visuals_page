@@ -1,6 +1,11 @@
 from pymongo import MongoClient
 import pandas as pd
+from csv import reader
 import json
+
+#goal: post each row in csv as its own post
+#write function that checks for new post id
+#create dataframe of every post
 
 class mongo_handler:
     def __init__(self):
@@ -55,5 +60,10 @@ def example_update():
     df2 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
     return df1, df2
 
-df1, df2 = example_update()
-print(df1)
+ with open('Time_Location_Rand_People.csv' 'r') as read_obj:
+        csv_reader = reader(read_obj)
+        header = next(csv_reader)
+        if header != None:
+            for row in csv_reader:
+                print(row)
+

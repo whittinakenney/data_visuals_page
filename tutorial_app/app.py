@@ -9,7 +9,7 @@ import plotly.express as px
 import numpy as np
 from dash.dependencies import Output, Input
 
-data = pd.read_csv("uberProj/N-Factor_RandomGenerated .csv")
+data = pd.read_csv("../uberProj/N-Factor_RandomGenerated .csv")
 #data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
 #data.sort_values("Date", inplace=True)
 

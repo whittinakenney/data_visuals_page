@@ -64,11 +64,11 @@ def extract_times(df1, df2):
 
 def max_date():
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     all_years, all_months, all_hours = extract_times(df1, df2)
@@ -339,11 +339,11 @@ monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
 #Finally, it counts the occurence of each hour so [9, 9] would return [2]
 def count_per_hour(year, month, day):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     df3 = pd.read_csv(
@@ -436,11 +436,11 @@ def update_selected_data(clickData):
                                                        Input("interval-component", "n_intervals")])
 def update_total_detections(datePicked, n):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     date_picked = dt.strptime(datePicked, "%Y-%m-%d")
@@ -579,11 +579,11 @@ def update_histogram_live(datePicked, value, n):
 
 def getLatLonColor(selectedData, month, day):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     all_times_dates = extract_all_times(df1, df2)

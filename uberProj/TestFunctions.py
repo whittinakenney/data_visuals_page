@@ -13,7 +13,7 @@ df2 = pd.read_csv(
     dtype=object,
 )
 df3 = pd.read_csv(
-    "N-Factor_RandomGenerated .csv"
+    "../previousVersions/N-Factor_RandomGenerated .csv"
 )
 
 

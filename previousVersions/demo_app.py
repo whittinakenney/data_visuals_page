@@ -302,11 +302,11 @@ app.layout = html.Div(
 
 def count_per_hour(year, month, day):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     df3 = pd.read_csv(
@@ -395,11 +395,11 @@ def get_selection(year, month, day, selection):
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     unique_detections = list(set(all_IDs(df1, df2)))
@@ -409,7 +409,7 @@ def update_total_detections(n):
 
 def update_people_detections(n):
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     people_ids = df2.id
@@ -422,7 +422,7 @@ def update_people_detections(n):
 
 def update_vehicle_detections(n):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     vehicle_ids = df1.id
@@ -562,11 +562,11 @@ def get_bar_color(domain):
 
 def getLatLonColor(selectedData, month, day):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     all_times_dates = extract_all_times(df1, df2)
@@ -657,11 +657,11 @@ def map_filter(clickData):
 
 def map_xval_yval():
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     # if clickData != None:
@@ -802,11 +802,11 @@ def percent_sex(people_df):
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     df2 = pd.read_csv(
-        "Time_Location_Rand_People.csv",
+        "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
     )
     percent_female, percent_male, percent_unknown = percent_sex(df2)
@@ -855,7 +855,7 @@ def percent_car_color(vehicle_df):
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
     df1 = pd.read_csv(
-        "TrafficData_Rand.csv",
+        "../uberProj/TrafficData_Rand.csv",
         dtype=object,
     )
     percents, colors = percent_car_color(df1)

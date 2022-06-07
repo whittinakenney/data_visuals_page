@@ -31,12 +31,12 @@ mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZT
 
 class mongo_handler:
     def __init__(self):
-        self.client = MongoClient('45.79.221.195', 27017)
+        self.client = MongoClient('192.168.50.115', 27017)
         self.db = self.client['detections']
 
-    def dataframe_to_dict(self, post):
-        dataframe = post.to_dict(orient='split')
-        return dataframe
+    # def dataframe_to_dict(self, post):
+    #     dataframe = post.to_dict(orient='split')
+    #     return dataframe
 
     def get_vehicles(self):
         collection = self.db["vehicles"]
@@ -46,40 +46,45 @@ class mongo_handler:
         collection = self.db["people"]
         return collection
 
-    def update_vehicles(self, post):
-        collection = self.db["vehicles"]
-        frame = self.dataframe_to_dict(post)
-        post_id = collection.insert_one(frame).inserted_id
-        return post_id
 
-    def update_people(self, post):
-        collection = self.db["people"]
-        frame = self.dataframe_to_dict(post)
-        post_id = collection.insert_one(frame).inserted_id
-        return post_id
-
-def example_update():
-    # Create an instance of the class
-    # This is needed to intialized class variables
+def create_people_df():
     md = mongo_handler()
-    md.get_vehicles().drop()
-    md.get_people().drop()
-    # md.get_vehicles().drop()
-    # Create a pd to upload to the database
-    people = pd.read_csv('Time_Location_Rand_People.csv')
-    # Then we can update the database with the new data
-    md.update_people(people)
-    # Here we can do the same thing with vehicles
-    vehicles = pd.read_csv('TrafficData_Rand.csv')
-    md.update_vehicles(vehicles)
-    #pull data from db and convert to df
-    cursor = md.get_vehicles().find({})
-    table = cursor[0]
-    df1 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
-    cursor2 = md.get_people().find({})
-    table = cursor2[0]
-    df2 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
-    return df1, df2
+    cursor = md.get_people().find({})
+    initial_post = list(cursor[0].keys())
+    rows = []
+    for post in cursor:
+        if len(list(post.keys())) > len(initial_post):
+            columns = list(post.keys())
+        else:
+            columns = initial_post
+        row = post.values()
+        rows.append(row)
+    #columns = np.unique(columns)
+    people_df = pd.DataFrame(columns=columns)
+    for i in range(len(rows)):
+        people_df.loc[i] = rows[i]
+    return people_df
+
+#creating intial dataframe
+df = create_people_df()
+
+##searches for new posts in people collection and adds them to dataframe
+def update_people_df(df):
+    md = mongo_handler()
+    cursor = md.get_people().find({})
+    df_post_ids = list(df['_id'])
+    post_ids_preprocess = list(df.loc[df['postprocess'] == False, '_id'])
+    last_row_index = len(df_post_ids)
+    for post in cursor:
+        if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
+            df.drop(df.index[df['_id'] == post['_id']])
+            df.loc[last_row_index] = post.values()
+            last_row_index += 1
+    for post in cursor:
+        if post['_id'] not in df_post_ids:
+            df.loc[last_row_index] = post.values()
+            last_row_index += 1
+    return df
 
 #important locations
 important_locations = {
@@ -110,7 +115,8 @@ def extract_times(df1, df2):
     return (all_years, all_months, all_hours)
 
 def max_date():
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     all_years, all_months, all_hours = extract_times(df1, df2)
     max_year = max(all_years)
     max_month = max(all_months) + 12
@@ -347,7 +353,8 @@ app.layout = html.Div(
 #                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
 def count_per_hour(year, month, day):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     hour_of_detection = []
     detections_by_hour = []
     df4 = data_frame4(df1, df2)
@@ -430,7 +437,8 @@ def get_selection(year, month, day, selection):
 
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     total_detections = all_IDs(df1, df2)
     unique_detections = list(set(total_detections))
     unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
@@ -439,7 +447,8 @@ def update_total_detections(n):
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 
 def update_people_detections(n):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     people_ids = df2.id
     unique_ids = list(set(people_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -450,7 +459,8 @@ def update_people_detections(n):
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 
 def update_vehicle_detections(n):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     vehicle_ids = df1.id
     unique_ids = list(set(vehicle_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -588,7 +598,8 @@ def get_bar_color(domain):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     all_times_dates = extract_all_times(df1, df2)
     df4 = data_frame4(df1, df2)
     include_rows = []
@@ -614,8 +625,12 @@ def getLatLonColor(selectedData, month, day):
 
 #function that creates df5
 def create_map_df(df_with_coords):
-    lats = list(df_with_coords["lat"])
-    longs = list(df_with_coords['long'])
+    if 'lat' in df_with_coords.columns:
+        lats = list(df_with_coords["lat"])
+        longs = list(df_with_coords['long'])
+    else:
+        lats = []
+        longs = []
     ID_nums = list(df_with_coords["id"])
     label_column = list(df_with_coords['label'])
     list_ID_list = [] #creates df5 IDs column
@@ -676,7 +691,8 @@ def map_filter(clickData):
     return person_feature
 
 def map_xval_yval():
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     # if clickData != None:
     #     person_feature = map_filter(clickData)
     #     #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
@@ -794,35 +810,36 @@ def update_graph(n):#date, time in string format, location
     )
 
 def percent_sex(people_df):
-    count_f = 0
-    count_m = 0
-    count_u = 0
-    gender_list = people_df['sex']
-    for gender in gender_list:
-        if gender == "female":
-            count_f += 1
-        elif gender == "male":
-            count_m += 1
-        else:
-            count_u += 1
-    percent_female = (count_f/len(gender_list)) * 100
-    percent_male = (count_m/len(gender_list)) * 100
-    percent_unknown = (count_u/len(gender_list)) * 100
+    if 'sex' in people_df.columns:
+        count_f = 0
+        count_m = 0
+        count_u = 0
+        gender_list = people_df['sex']
+        for gender in gender_list:
+            if gender == "female":
+                count_f += 1
+            elif gender == "male":
+                count_m += 1
+            else:
+                count_u += 1
+        percent_female = (count_f/len(gender_list)) * 100
+        percent_male = (count_m/len(gender_list)) * 100
+        percent_unknown = (count_u/len(gender_list)) * 100
+    else:
+        percent_female = 0
+        percent_male = 0
+        percent_unknown = 100
     return percent_female, percent_male, percent_unknown
 
 @app.callback(
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     percent_female, percent_male, percent_unknown = percent_sex(df2)
     percentages = [percent_female, percent_male, percent_unknown]
     sex = ["Female", "Male", "Unknown"]
-    zipped = list(zip(sex, percentages))
-    df = pd.DataFrame(zipped, columns=[
-        "SEX",
-        "%"]
-                       )
     graph_colors = px.colors.sequential.Viridis
     fig = go.Figure()
     for n in range(len(sex)):
@@ -859,7 +876,8 @@ def percent_car_color(vehicle_df):
     Output("car-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
-    df1, df2 = example_update()
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df(df)
     percents, colors = percent_car_color(df1)
     graph_colors = px.colors.sequential.Viridis
     fig = go.Figure()

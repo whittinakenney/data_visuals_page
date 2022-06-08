@@ -28,9 +28,11 @@ server = app.server
 # Plotly mapbox public token
 mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZTNrbXU1OTN4NmJnYyJ9.GRJfLp1eHrnerFrpDqpzAw"
 
+
 #important locations
 important_locations = {
-    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246}
+    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246},
+    "14442C1031A059D700": {"lat": 34.83358, "lon": -79.18238}
 }
 
 #Maximum Date from data
@@ -698,41 +700,12 @@ def map_xval_yval():
     veh_per_colors = vehicle_colors + person_colors
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
-# Update Map Graph based on date-picker, selected data on histogram and location dropdown
-@app.callback(
-    Output("map-graph", "figure"),
-    [
-        Input("interval-component", "n_intervals")
-    ],
-)
-def update_graph(n):#date, time in string format, location
-
-    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
-
-    zoom = 12.0
+def initial_map():
+    zoom = 14.0
     latInitial = 34.83363
     lonInitial = -79.18255
     bearing = 0
-
-    return go.Figure(
-        data=[
-            Scattermapbox(
-                lat=veh_per_lats,
-                lon=veh_per_longs,
-                mode="markers",
-                hoverinfo="lat+lon+text",
-                text=get_text(df1_new, df2_new),
-                marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
-                ),
-            Scattermapbox( #double check things are picked up at ETI
-                lat=[important_locations[i]["lat"] for i in important_locations],
-                lon=[important_locations[i]["lon"] for i in important_locations],
-                mode="markers",
-                hoverinfo="text",
-                text=[i for i in important_locations],
-                marker=dict(size=8, color="#A91007", allowoverlap=True),
-            ),
-        ],
+    map = go.Figure(
         layout=Layout(
             autosize=True,
             margin=go.layout.Margin(l=0, r=35, t=0, b=0),
@@ -751,7 +724,7 @@ def update_graph(n):#date, time in string format, location
                             dict(
                                 args=[
                                     {
-                                        #"mapbox.zoom": 12,
+                                        # "mapbox.zoom": 12,
                                         "mapbox.center.lon": "-79.18255",
                                         "mapbox.center.lat": "34.83363",
                                         "mapbox.bearing": 0,
@@ -779,6 +752,39 @@ def update_graph(n):#date, time in string format, location
             ],
         ),
     )
+    return map
+
+map = initial_map() #In order to run off wifi, we only want the map token to be loaded once
+
+@app.callback(
+    Output("map-graph", "figure"),
+    [
+        Input("interval-component", "n_intervals")
+    ],
+)
+def update_graph(n):#date, time in string format, location
+
+    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
+
+    return map.update(
+        data=[
+            Scattermapbox(
+                lat=[important_locations[i]["lat"] for i in important_locations],
+                lon=[important_locations[i]["lon"] for i in important_locations],
+                mode="markers",
+                hoverinfo="text",
+                text=[i for i in important_locations],
+                marker=dict(size=8, color="#A91007", allowoverlap=True),
+            ),
+            Scattermapbox(
+                lat=veh_per_lats,
+                lon=veh_per_longs,
+                mode="markers",
+                hoverinfo="lat+lon+text",
+                text=get_text(df1_new, df2_new),
+                marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
+            )
+        ])
 
 def percent_sex(people_df):
     count_f = 0

@@ -1,5 +1,6 @@
 import numpy as np
 from pymongo import MongoClient
+import pymongo
 import pandas as pd
 from csv import reader
 import json
@@ -21,6 +22,14 @@ class mongo_handler:
     def get_people(self):
         collection = self.db["people"]
         return collection
+
+def test_server():
+    md = mongo_handler()
+    try:
+        md.client.server_info()
+    except pymongo.errors.ServerSelectionTimeoutError:
+        return False
+print(test_server())
 
 
 def create_people_df():
@@ -49,8 +58,6 @@ def update_people_df(df):
     post_ids_preprocess = list(df.loc[df['postprocess'] == False, '_id'])
     last_row_index = len(df_post_ids) + 1
     for post in cursor:
-        print(last_row_index)
-        print(post.values())
         if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
             df.drop(df.index[df['_id'] == post['_id']])
             df.loc[last_row_index] = list(post.values())
@@ -61,7 +68,22 @@ def update_people_df(df):
             last_row_index += 1
     return df
 print(update_people_df(df))
-print(df.id)
+
+important_locations = {
+    "Emerging Technology Institute": {"lat": 34.83373, "lon": -79.18246},
+    "14442C1031A059D700": {"lat": 34.83358, "lon": -79.18238}
+}
+
+# def update_important_locations(df, important_locations):
+#     if 'camera' in df.columns:
+#         titles = list(df.camera)
+#         unique_titles = list(set(titles))
+#         for n in range(len(unique_titles)):
+#             lats = list(df.loc[df['camera'] == '14442C1031A059D700', 'id'])
+#             longs = list(df.loc[df['camera'] == '14442C1031A059D700', 'id'])
+#             important_locations[unique_titles[n]] = {"lat": lats[0], "long": longs[0]}
+#     return important_locations
+# print(update_important_locations(update_people_df(df), important_locations))
 
     # def update_vehicles(self, post):
     #     collection = self.db["vehicles"]
@@ -102,6 +124,31 @@ print(df.id)
 #     # table = cursor2[0]
 #     # df2 = pd.DataFrame(index=table['index'], columns=table['columns'], data=table['data'])
 
+# BBox = (-79.1884, -79.1804, 34.8442, 34.8288) #OpenStreetMap longmin, longmax, latmin, latmax
+#
+# fig, ax = plt.subplots(figsize=(8, 7))
+# ax.scatter(veh_per_longs, veh_per_lats, zorder=1, alpha=0.2, c='b', s=10)
+# ax.scatter(
+#     x=[important_locations[i]["lon"] for i in important_locations],
+#     y=[important_locations[i]["lat"] for i in important_locations],
+#     mode="markers",
+#     hoverinfo="text",
+#     text=[i for i in important_locations],
+#     marker=dict(size=8, color="#A91007", allowoverlap=True),
+#     ),
+# ax.scatter(
+#     x=veh_per_longs,
+#     y=veh_per_lats,
+#     mode="markers",
+#     hoverinfo="lat+lon+text",
+#     text=get_text(df1_new, df2_new),
+#     marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
+#             )
+#     ])
+# ax.set_title('Live Detections')
+# ax.set_xlim(BBox[0], BBox[1])
+# ax.set_ylim(BBox[2], BBox[3])
+# ax.imshow(map, zorder=0, extent=BBox, aspect='equal')
 
 
 

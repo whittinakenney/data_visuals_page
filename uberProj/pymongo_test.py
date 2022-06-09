@@ -16,7 +16,7 @@ client = MongoClient('45.79.221.195', 27017)
 db = client['test-database']
 
 
-posts = db.posts
+people = db.people
 
 # df1 = pd.read_csv('Time_Location_Rand_People.csv')
 # post1 = df1.to_dict(orient='split')
@@ -33,6 +33,6 @@ posts = db.posts
 # for idx,row in zip(posts.find_one(post_id2)['index'],posts.find_one(post_id2)['data']):
 #     new_df2.loc[idx] = row
 
-cursor=posts.find({})#how to get specific post
+cursor=people.find({})#how to get specific post
 for doc in cursor:
     print(doc)

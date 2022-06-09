@@ -1,3 +1,5 @@
+import os
+
 import dash
 from dash import dcc
 from dash import html
@@ -6,8 +8,10 @@ import numpy as np
 import uuid
 import pymongo
 import matplotlib.pyplot as plt
+import flask
 
 from math import nan, isnan
+from dash import dash_table
 from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
@@ -38,8 +42,11 @@ important_locations = {
 }
 
 class mongo_handler:
+    # def __init__(self):
+    #     self.client = MongoClient('192.168.50.115', 27017)
+    #     self.db = self.client['detections']
     def __init__(self):
-        self.client = MongoClient('192.168.50.115', 27017)
+        self.client = MongoClient('45.79.221.195', 27017)
         self.db = self.client['detections']
 
     # def dataframe_to_dict(self, post):
@@ -54,13 +61,13 @@ class mongo_handler:
         collection = self.db["people"]
         return collection
 
-def test_server():
-    md = mongo_handler()
-    try:
-        md.client.server_info()
-    except pymongo.errors.ServerSelectionTimeoutError:
-        print('not connected')
-        return False
+# def test_server():
+#     md = mongo_handler()
+#     try:
+#         md.client.server_info()
+#     except pymongo.errors.ServerSelectionTimeoutError:
+#         print('not connected')
+#         return False
 
 def create_people_df():
     md = mongo_handler()
@@ -80,34 +87,24 @@ def create_people_df():
         people_df.loc[i] = rows[i]
     return people_df
 
-count = 0
-df = pd.DataFrame()
+df = create_people_df()
 ##searches for new posts in people collection and adds them to dataframe
 def update_people_df():
-    global df
-    global count
-    available = test_server()
-    if available is False:
-        return df
-    else:
-        if count < 1:
-            count += 1
-            df = create_people_df()
-        md = mongo_handler()
-        cursor = md.get_people().find({})
-        df_post_ids = list(df['_id'])
-        post_ids_preprocess = list(df.loc[df['postprocess'] == False, '_id'])
-        last_row_index = len(df_post_ids)
-        for post in cursor:
-            if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
-                df.drop(df.index[df['_id'] == post['_id']])
-                df.loc[last_row_index] = post.values()
-                last_row_index += 1
-        for post in cursor:
-            if post['_id'] not in df_post_ids:
-                df.loc[last_row_index] = post.values()
-                last_row_index += 1
-        return df
+    md = mongo_handler()
+    cursor = md.get_people().find({})
+    df_post_ids = list(df['_id'])
+    post_ids_preprocess = list(df.loc[df['postprocess'] == False, '_id'])
+    last_row_index = len(df_post_ids)
+    for post in cursor:
+        if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
+            df.drop(df.index[df['_id'] == post['_id']])
+            df.loc[last_row_index] = post.values()
+            last_row_index += 1
+    for post in cursor:
+        if post['_id'] not in df_post_ids:
+            df.loc[last_row_index] = post.values()
+            last_row_index += 1
+    return df
 
 #Maximum Date from data
 def extract_all_times(df1, df2):
@@ -252,7 +249,7 @@ app.layout = html.Div(
         html.Div(id='live-update-csv'),
         dcc.Interval(
         id='interval-component',
-        interval=2.5*1000,# in milliseconds
+        interval=2*1000,# in milliseconds
         n_intervals=0),
         html.Div(
                 className="four columns div-user-controls",
@@ -338,83 +335,89 @@ app.layout = html.Div(
                     ]
                 ),
         html.Div(
-            #className="row",
+            className='div-map',
             children=[
                 html.Div(
-                    className="eight columns div-for-charts bg-grey",
+                    className="live-map",
+                    #children=[html.Img(src=app.get_asset_url('eti_map.png'))],
+                    children=[html.Img()],
+                    style={"text-align": "center"}
+                ),
+                html.Div(
+                    className='div-id-collector',
                     children=[
-                        dcc.Graph(id="map-graph"),
-                        dcc.Graph(id='initial-map')
+                        html.P(id="id-collector"),
+                    ],
+                    style={"text-align": "center"}
+                ),
                     ],
                 ),
             ],
         )
-    ]
-)
 
-def initial_map():
-    zoom = 14.0
-    latInitial = 34.83363
-    lonInitial = -79.18255
-    bearing = 0
-    map = go.Figure(
-            data=[
-                Scattermapbox(
-                    lat=[important_locations[i]["lat"] for i in important_locations],
-                    lon=[important_locations[i]["lon"] for i in important_locations],
-                    mode="markers",
-                    hoverinfo="text",
-                    text=[i for i in important_locations],
-                    marker=dict(size=8, color="#A91007", allowoverlap=True),
-                ),
-            ],
-            layout=Layout(
-                autosize=True,
-                margin=go.layout.Margin(l=0, r=35, t=0, b=0),
-                showlegend=False,
-                mapbox=dict(
-                    accesstoken=mapbox_access_token,
-                    center=dict(lat=latInitial, lon=lonInitial),  # ETI lat and long 34.83363, -79.18255
-                    style="dark",
-                    bearing=bearing,
-                    zoom=zoom,
-                ),
-                updatemenus=[
-                    dict(
-                        buttons=(
-                            [
-                                dict(
-                                    args=[
-                                        {
-                                            # "mapbox.zoom": 12,
-                                            "mapbox.center.lon": "-79.18255",
-                                            "mapbox.center.lat": "34.83363",
-                                            "mapbox.bearing": 0,
-                                            "mapbox.style": "dark",
-                                        }
-                                    ],
-                                    label="Reset Zoom",
-                                    method="relayout",
-                                )
-                            ]
-                        ),
-                        direction="left",
-                        pad={"r": 0, "t": 0, "b": 0, "l": 0},
-                        showactive=False,
-                        type="buttons",
-                        x=0.45,
-                        y=0.02,
-                        xanchor="left",
-                        yanchor="bottom",
-                        bgcolor="#323130",
-                        borderwidth=1,
-                        bordercolor="#6d6d6d",
-                        font=dict(color="#FFFFFF"),
-                    )
-                ],
-            ),
-        )
-    return map
+# def initial_map():
+#     zoom = 14.0
+#     latInitial = 34.83363
+#     lonInitial = -79.18255
+#     bearing = 0
+#     map = go.Figure(
+#             data=[
+#                 Scattermapbox(
+#                     lat=[important_locations[i]["lat"] for i in important_locations],
+#                     lon=[important_locations[i]["lon"] for i in important_locations],
+#                     mode="markers",
+#                     hoverinfo="text",
+#                     text=[i for i in important_locations],
+#                     marker=dict(size=8, color="#A91007", allowoverlap=True),
+#                 ),
+#             ],
+#             layout=Layout(
+#                 autosize=True,
+#                 margin=go.layout.Margin(l=0, r=35, t=0, b=0),
+#                 showlegend=False,
+#                 mapbox=dict(
+#                     accesstoken=mapbox_access_token,
+#                     center=dict(lat=latInitial, lon=lonInitial),  # ETI lat and long 34.83363, -79.18255
+#                     style="dark",
+#                     bearing=bearing,
+#                     zoom=zoom,
+#                 ),
+#                 updatemenus=[
+#                     dict(
+#                         buttons=(
+#                             [
+#                                 dict(
+#                                     args=[
+#                                         {
+#                                             # "mapbox.zoom": 12,
+#                                             "mapbox.center.lon": "-79.18255",
+#                                             "mapbox.center.lat": "34.83363",
+#                                             "mapbox.bearing": 0,
+#                                             "mapbox.style": "dark",
+#                                         }
+#                                     ],
+#                                     label="Reset Zoom",
+#                                     method="relayout",
+#                                 )
+#                             ]
+#                         ),
+#                         direction="left",
+#                         pad={"r": 0, "t": 0, "b": 0, "l": 0},
+#                         showactive=False,
+#                         type="buttons",
+#                         x=0.45,
+#                         y=0.02,
+#                         xanchor="left",
+#                         yanchor="bottom",
+#                         bgcolor="#323130",
+#                         borderwidth=1,
+#                         bordercolor="#6d6d6d",
+#                         font=dict(color="#FFFFFF"),
+#                     )
+#                 ],
+#             ),
+#         )
+#     return map
 
 # ready = input("Have you switched to local? Type yes or no? ")
 # if ready == 'yes':
@@ -526,46 +529,34 @@ def get_selection(year, month, day, selection):
 
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
-    available = test_server()
-    if available is False:
-        return 0
-    else:
-        df1 = pd.read_csv('TrafficData_Rand.csv')
-        df2 = update_people_df()
-        total_detections = all_IDs(df1, df2)
-        unique_detections = list(set(total_detections))
-        unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
-        return len(unique_det_without_nan)
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df()
+    total_detections = all_IDs(df1, df2)
+    unique_detections = list(set(total_detections))
+    unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
+    return len(unique_det_without_nan)
 
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 def update_people_detections(n):
-    available = test_server()
-    if available is False:
-        return 0
-    else:
-        df1 = pd.read_csv('TrafficData_Rand.csv')
-        df2 = update_people_df()
-        people_ids = df2.id
-        unique_ids = list(set(people_ids))
-        unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
-        return "People detected: {:,d}".format(
-            len(unique_ids_without_nan)
-        )
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df()
+    people_ids = df2.id
+    unique_ids = list(set(people_ids))
+    unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
+    return "People detected: {:,d}".format(
+        len(unique_ids_without_nan)
+    )
 
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 def update_vehicle_detections(n):
-    available = test_server()
-    if available is False:
-        return 0
-    else:
-        df1 = pd.read_csv('TrafficData_Rand.csv')
-        df2 = update_people_df()
-        vehicle_ids = df1.id
-        unique_ids = list(set(vehicle_ids))
-        unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
-        return "Vehicles detected: {:,d}".format(
-            len(unique_ids_without_nan)
-        )
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df()
+    vehicle_ids = df1.id
+    unique_ids = list(set(vehicle_ids))
+    unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
+    return "Vehicles detected: {:,d}".format(
+        len(unique_ids_without_nan)
+    )
 
 def item_counter(dataFrame, domain):
     item_counter = []
@@ -769,7 +760,8 @@ def create_map_df(df_with_coords):
         "long",
         "id",
         "labels",
-        "color"]
+        "color",
+    ]
         )
     return df5
 
@@ -826,111 +818,144 @@ def map_xval_yval():
     veh_per_colors = vehicle_colors + person_colors
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
+map_pic = plt.imread('openstreet.png') #load back pic once
 @app.callback(
-    Output("map-graph", "figure"),
+    [Output("id-collector", "children"), Output("live-map", "src")],
     [
         Input("interval-component", "n_intervals")
     ]
 )
 def update_graph(n):#date, time in string format, location
-    available = test_server()
-    if available is False:
-        fig = go.Figure()
-        return fig
-    else:
-        df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
-        map = go.Figure(
-            data=[
-                Scattermapbox(
-                    lat=[important_locations[i]["lat"] for i in important_locations],
-                    lon=[important_locations[i]["lon"] for i in important_locations],
-                    mode="markers",
-                    hoverinfo="text",
-                    text=[i for i in important_locations],
-                    marker=dict(size=8, color="#A91007", allowoverlap=True),
-                ),
-                Scattermapbox(
-                    lat=veh_per_lats,
-                    lon=veh_per_longs,
-                    mode="markers",
-                    hoverinfo="lat+lon+text",
-                    text=get_text(df1_new, df2_new),
-                    marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
-                )
-            ],
-            layout=Layout(
-                autosize=True,
-                margin=go.layout.Margin(l=0, r=35, t=0, b=0),
-                showlegend=False,
-                updatemenus=[
-                    dict(
-                        buttons=(
-                            [
-                                dict(
-                                    args=[
-                                        {
-                                            # "mapbox.zoom": 12,
-                                            "mapbox.center.lon": "-79.18255",
-                                            "mapbox.center.lat": "34.83363",
-                                            "mapbox.bearing": 0,
-                                            "mapbox.style": "dark",
-                                        }
-                                    ],
-                                    label="Reset Zoom",
-                                    method="relayout",
-                                )
-                            ]
-                        ),
-                        direction="left",
-                        pad={"r": 0, "t": 0, "b": 0, "l": 0},
-                        showactive=False,
-                        type="buttons",
-                        x=0.45,
-                        y=0.02,
-                        xanchor="left",
-                        yanchor="bottom",
-                        bgcolor="#323130",
-                        borderwidth=1,
-                        bordercolor="#6d6d6d",
-                        font=dict(color="#FFFFFF"),
-                    )
-                ],
-            ),
-        )
-        map.add_layout_image(
-            dict(
-                source=open("map.png", 'r'),
-                xref="lon",
-                yref="lat",
-                x=0,
-                y=3,
-                sizex=2,
-                sizey=2,
-                sizing="stretch",
-                opacity=0.5,
-                layer="below")
-        )
-        return map
-        # return map.update(
-        #     data=[
-        #         Scattermapbox(
-        #             lat=[important_locations[i]["lat"] for i in important_locations],
-        #             lon=[important_locations[i]["lon"] for i in important_locations],
-        #             mode="markers",
-        #             hoverinfo="text",
-        #             text=[i for i in important_locations],
-        #             marker=dict(size=8, color="#A91007", allowoverlap=True),
-        #         ),
-        #         Scattermapbox(
-        #             lat=veh_per_lats,
-        #             lon=veh_per_longs,
-        #             mode="markers",
-        #             hoverinfo="lat+lon+text",
-        #             text=get_text(df1_new, df2_new),
-        #             marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
-        #         )
-        #     ],
-        # )
+    df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
+    important_lat = [important_locations[i]["lat"] for i in important_locations]
+    important_lon = [important_locations[i]["lon"] for i in important_locations]
+    eti_lats = [34.83459512953768, 34.83480684650813, 34.83286712508545, 34.83309441422892]
+    eti_longs = [-79.18291931862396, -79.1822972311781, -79.18214550253276, -79.18136789322543]
+    veh_per_lats = [float(i) for i in veh_per_lats]
+    veh_per_longs = [float(i) for i in veh_per_longs]
+    # Make a plot
+
+    BBox = (-79.17789, -79.18631, 34.83597, 34.83219)  # OpenStreetMap longmin, longmax, latmin, latmax
+
+    fig, ax = plt.subplots(figsize=(12, 10.5))
+    ax.scatter(
+        x=important_lon,
+        y=important_lat,
+        zorder=1,
+        alpha=0.5,
+        c="#A91007",
+        s=10
+    )
+    ax.scatter(
+        x=eti_longs,
+        y=eti_lats,
+        zorder=1,
+        alpha=0.5,
+        c='#FFFFFF',
+        s=10
+    )
+    ax.scatter(
+        x=veh_per_longs,
+        y=veh_per_lats,
+        #text=get_text(df1_new, df2_new),
+        zorder=1,
+        alpha=0.5,
+        c='#000000',
+        s=10
+    )
+    ax.grid(True)
+    ax.set_facecolor(color='#000000')
+    ax.set_title('Live Detections')
+    ax.set_xlim(BBox[0], BBox[1])
+    ax.set_ylim(BBox[2], BBox[3])
+    ax.imshow(map_pic, zorder=0, extent=BBox, aspect='equal')
+    plt.savefig('assets/eti_map.png', bbox_inches='tight')
+
+    # Unique_ID = str(person_df['id'][-1:])
+    # Camera_id = str(person_df['camera'][-1:])
+    # distance = str(person_df['distance'][-1:])
+    return (('Map layout from OpenStreetMap'), app.get_asset_url('eti_map.png'))
+    # Export plot to plotly
+    #unique_url = py.plot_mpl(mpl_fig, filename="eti_map")
+
+    # available = test_server()
+    # if available is False:
+    #     fig = go.Figure()
+    #     return fig
+    # else:
+    #     df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
+    #     map = go.Figure(
+    #         data=[
+    #             Scattermapbox(
+    #                 lat=[important_locations[i]["lat"] for i in important_locations],
+    #                 lon=[important_locations[i]["lon"] for i in important_locations],
+    #                 mode="markers",
+    #                 hoverinfo="text",
+    #                 text=[i for i in important_locations],
+    #                 marker=dict(size=8, color="#A91007", allowoverlap=True),
+    #             ),
+    #             Scattermapbox(
+    #                 lat=veh_per_lats,
+    #                 lon=veh_per_longs,
+    #                 mode="markers",
+    #                 hoverinfo="lat+lon+text",
+    #                 text=get_text(df1_new, df2_new),
+    #                 marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
+    #             )
+    #         ],
+    #         layout=Layout(
+    #             autosize=True,
+    #             margin=go.layout.Margin(l=0, r=35, t=0, b=0),
+    #             showlegend=False,
+    #             updatemenus=[
+    #                 dict(
+    #                     buttons=(
+    #                         [
+    #                             dict(
+    #                                 args=[
+    #                                     {
+    #                                         # "mapbox.zoom": 12,
+    #                                         "mapbox.center.lon": "-79.18255",
+    #                                         "mapbox.center.lat": "34.83363",
+    #                                         "mapbox.bearing": 0,
+    #                                         "mapbox.style": "dark",
+    #                                     }
+    #                                 ],
+    #                                 label="Reset Zoom",
+    #                                 method="relayout",
+    #                             )
+    #                         ]
+    #                     ),
+    #                     direction="left",
+    #                     pad={"r": 0, "t": 0, "b": 0, "l": 0},
+    #                     showactive=False,
+    #                     type="buttons",
+    #                     x=0.45,
+    #                     y=0.02,
+    #                     xanchor="left",
+    #                     yanchor="bottom",
+    #                     bgcolor="#323130",
+    #                     borderwidth=1,
+    #                     bordercolor="#6d6d6d",
+    #                     font=dict(color="#FFFFFF"),
+    #                 )
+    #             ],
+    #         ),
+    #     )
+    #     map.add_layout_image(
+    #         dict(
+    #             source=open("map.png", 'r'),
+    #             xref="lon",
+    #             yref="lat",
+    #             x=0,
+    #             y=3,
+    #             sizex=2,
+    #             sizey=2,
+    #             sizing="stretch",
+    #             opacity=0.5,
+    #             layer="below")
+    #     )
+    #     return map
 
 def percent_sex(people_df):
     if 'sex' in people_df.columns:
@@ -958,33 +983,28 @@ def percent_sex(people_df):
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    available = test_server()
-    if available is False:
-        fig = go.Figure()
-        return fig
-    else:
-        df1 = pd.read_csv('TrafficData_Rand.csv')
-        df2 = update_people_df()
-        percent_female, percent_male, percent_unknown = percent_sex(df2)
-        percentages = [percent_female, percent_male, percent_unknown]
-        sex = ["Female", "Male", "Unknown"]
-        graph_colors = px.colors.sequential.Viridis
-        fig = go.Figure()
-        for n in range(len(sex)):
-            fig.add_trace(go.Bar(
-                y=['people  '],
-                x=[percentages[n]],
-                name=sex[n],
-                orientation='h',
-                marker=dict(
-                    color=graph_colors[n],
-                    line=dict(color='#FFFFFF', width=1)
-                )
-            ))
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df()
+    percent_female, percent_male, percent_unknown = percent_sex(df2)
+    percentages = [percent_female, percent_male, percent_unknown]
+    sex = ["Female", "Male", "Unknown"]
+    graph_colors = px.colors.sequential.Viridis
+    fig = go.Figure()
+    for n in range(len(sex)):
+        fig.add_trace(go.Bar(
+            y=['people  '],
+            x=[percentages[n]],
+            name=sex[n],
+            orientation='h',
+            marker=dict(
+                color=graph_colors[n],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
 
-        fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                          font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
-        return fig
+    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    return fig
 
 def percent_car_color(vehicle_df):
     paint_list = list(vehicle_df['paint'])
@@ -1004,31 +1024,26 @@ def percent_car_color(vehicle_df):
     Output("car-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
-    available = test_server()
-    if available is False:
-        fig = go.Figure()
-        return fig
-    else:
-        df1 = pd.read_csv('TrafficData_Rand.csv')
-        df2 = update_people_df()
-        percents, colors = percent_car_color(df1)
-        graph_colors = px.colors.sequential.Viridis
-        fig = go.Figure()
-        for n in range(len(percents)):
-            fig.add_trace(go.Bar(
-                y=['vehicles '],
-                x=[percents[n]],
-                name=colors[n],
-                orientation='h',
-                marker=dict(
-                    color=graph_colors[n],
-                    line=dict(color='#FFFFFF', width=1)
-                )
-            ))
+    df1 = pd.read_csv('TrafficData_Rand.csv')
+    df2 = update_people_df()
+    percents, colors = percent_car_color(df1)
+    graph_colors = px.colors.sequential.Viridis
+    fig = go.Figure()
+    for n in range(len(percents)):
+        fig.add_trace(go.Bar(
+            y=['vehicles '],
+            x=[percents[n]],
+            name=colors[n],
+            orientation='h',
+            marker=dict(
+                color=graph_colors[n],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
 
-        fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                          font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
-        return fig
+    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    return fig
 
 if __name__ == "__main__":
     app.run_server(debug=True)

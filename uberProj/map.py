@@ -13,6 +13,15 @@ important_locations = {
     "14442C1031A059D700": {"lat": 34.83358, "lon": -79.18238}
 }
 
+df1 = pd.read_csv(
+    "../uberProj/TrafficData_Rand.csv",
+    dtype=object,
+)
+df2 = pd.read_csv(
+    "../uberProj/Time_Location_Rand_People.csv",
+    dtype=object,
+)
+
 def initial_map():
     zoom = 14.0
     latInitial = 34.83363

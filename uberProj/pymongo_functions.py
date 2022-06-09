@@ -7,13 +7,12 @@ import json
 
 
 class mongo_handler:
+    # def __init__(self):
+    #     self.client = MongoClient('192.168.50.115', 27017)
+    #     self.db = self.client['detections']
     def __init__(self):
-        self.client = MongoClient('192.168.50.115', 27017)
+        self.client = MongoClient('45.79.221.195', 27017)
         self.db = self.client['detections']
-
-    # def dataframe_to_dict(self, post):
-    #     dataframe = post.to_dict(orient='split')
-    #     return dataframe
 
     def get_vehicles(self):
         collection = self.db["vehicles"]
@@ -23,14 +22,9 @@ class mongo_handler:
         collection = self.db["people"]
         return collection
 
-def test_server():
-    md = mongo_handler()
-    try:
-        md.client.server_info()
-    except pymongo.errors.ServerSelectionTimeoutError:
-        return False
-print(test_server())
-
+md = mongo_handler()
+cursor = md.get_people().find({})
+print(cursor)
 
 def create_people_df():
     md = mongo_handler()

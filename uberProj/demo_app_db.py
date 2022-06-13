@@ -69,11 +69,13 @@ class mongo_handler:
 #         print('not connected')
 #         return False
 
-def create_people_df():
+def create_vehicle_df():
     md = mongo_handler()
-    cursor = md.get_people().find({})
+    cursor = list(md.get_vehicles().find({}))
     initial_post = list(cursor[0].keys())
     rows = []
+    # for post in cursor:
+    #     print(post['id'])
     for post in cursor:
         if len(list(post.keys())) > len(initial_post):
             columns = list(post.keys())
@@ -81,38 +83,85 @@ def create_people_df():
             columns = initial_post
         row = post.values()
         rows.append(row)
-    #columns = np.unique(columns)
-    people_df = pd.DataFrame(columns=columns)
-    for i in range(len(rows)):
-        people_df.loc[i] = rows[i]
+    vehicle_df = pd.DataFrame(rows, columns=columns)
+    # for i in range(len(rows)):
+    #     people_df.loc[i] = rows[i]
+    return vehicle_df
+
+df1 = create_vehicle_df()
+
+def create_people_df():
+    md = mongo_handler()
+    cursor = list(md.get_people().find({}))
+    initial_post = list(cursor[0].keys())
+    rows = []
+    # for post in cursor:
+    #     print(post['id'])
+    for post in cursor:
+        if len(list(post.keys())) > len(initial_post):
+            columns = list(post.keys())
+        else:
+            columns = initial_post
+        row = post.values()
+        rows.append(row)
+    people_df = pd.DataFrame(rows, columns=columns)
+    # for i in range(len(rows)):
+    #     people_df.loc[i] = rows[i]
     return people_df
 
-df = create_people_df()
-##searches for new posts in people collection and adds them to dataframe
-def update_people_df():
+df2 = create_people_df() #the first time code loads, it will fill entire dataframe, but then will only update
+#for the rest of runtime
+
+##searches for new posts in vehicles collection and adds them to dataframe
+##checks for updates to postprocessing, if something has been post-processed, it
+##deletes the original row and adds the post-processed row
+def update_vehicle_df(df1):
     md = mongo_handler()
-    cursor = md.get_people().find({})
-    df_post_ids = list(df['_id'])
-    post_ids_preprocess = list(df.loc[df['postprocess'] == False, '_id'])
-    last_row_index = len(df_post_ids)
+    cursor = md.get_vehicles().find({}) #gets all posts in the collection
+    df1_post_ids = list(df1['_id']) #makes list of post id's already in df
+    post_ids_preprocess = list(df1.loc[df1['postprocess'] == False, '_id']) #gets those in current df1 that are -
+    #post-processed
+    last_row_index = len(df1_post_ids)
     for post in cursor:
         if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
-            df.drop(df.index[df['_id'] == post['_id']])
-            df.loc[last_row_index] = post.values()
+            #if those in dataframe that are false for post-processing, share a post id with posts
+            #in the database, but the post is true for post-processing...
+            df1.drop(df1.index[df1['_id'] == post['_id']]) #we drop the old one from the df
+            df1.loc[last_row_index] = post.values() #then add the newly post-processed row to replace it
+            last_row_index += 1
+    for post in cursor: #if there's a post with a post id that is not already in our df, we add it
+        if post['_id'] not in df1_post_ids:
+            df1.loc[last_row_index] = post.values()
+            last_row_index += 1
+    return df1
+
+##this function is the same as the one above, but for the vehicle collection
+def update_people_df(df2):
+    md = mongo_handler()
+    cursor = md.get_people().find({})
+    df2_post_ids = list(df2['_id'])
+    post_ids_preprocess = list(df2.loc[df2['postprocess'] == False, '_id'])
+    last_row_index = len(df2_post_ids)
+    for post in cursor:
+        if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
+            df2.drop(df2.index[df2['_id'] == post['_id']])
+            df2.loc[last_row_index] = post.values()
             last_row_index += 1
     for post in cursor:
-        if post['_id'] not in df_post_ids:
-            df.loc[last_row_index] = post.values()
+        if post['_id'] not in df2_post_ids:
+            df2.loc[last_row_index] = post.values()
             last_row_index += 1
-    return df
+    return df2
 
-#Maximum Date from data
+
+#returns list of veicle and person times
 def extract_all_times(df1, df2):
     vehicle_times = list(df1["time"])
     person_times = list(df2["time"])
     all_times_dates = vehicle_times + person_times #all the times which are in the yyyymmdd-hhmmss format
     return all_times_dates
 
+#returns list of all years, months, and days in df
 def extract_times(df1, df2):
     all_years = [] #just collects all the years
     all_months = []
@@ -129,29 +178,12 @@ def extract_times(df1, df2):
         #date_time_array = [np.array(all_dates), np.array(all_times)]  # array of dates and times
     return (all_years, all_months, all_hours)
 
-def max_date():
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
-    all_years, all_months, all_hours = extract_times(df1, df2)
-    max_year = max(all_years)
-    max_month = max(all_months) + 12
-    if max_month == 13:
-        max_month = 1
-        max_year = max_year + 1
-    return "{}-{}-{}".format(max_year, max_month, 1)
-
-#Next we make lists of hours IDs were collected
+#Makes lists of hours IDs were collected
 def all_IDs(df1, df2):
     Person_ID_list = list(df2["id"])
     Plate_Num_List = list(df1["id"])
     Vehicle_Person_IDs = Plate_Num_List + Person_ID_list
     return Vehicle_Person_IDs
-
-## remember all_times_dates = vehicle_times + person_times
-
-#We are going to match all the IDs (person and plate) with the times
-#they were collected
-#IDs_and_time_collected = tuple(zip(Vehicle_Person_IDs, all_hours))
 
 #Collecting labels
 def all_labels(df1, df2):
@@ -160,7 +192,8 @@ def all_labels(df1, df2):
     Vehicle_People_Labels = Vehicle_Labels + People_Labels
     return Vehicle_People_Labels
 
-# Collecting Unique locations of cameras for both people and vehicles
+#returns list of vehicle lat and lon, people lat and lon, vehicle and people
+# lat and lons, then finally, unique vehicle and unique people locations.
 def lats_long(df1, df2):
     Vehicle_Lats = list(df1["lat"])
     Vehicle_Longs = list(df1["long"])
@@ -199,7 +232,7 @@ def dict_of_locations(df1, df2):
     list_of_locations = dict_of_All_detection_locations
     return list_of_locations
 
-#add color code column to df4
+#add color code column to df4. vehicles are white and people are turquoise
 def assign_color_label(row):
     if row['labels'] == 'vehicle':
         color = "#FFFFFF"
@@ -313,6 +346,17 @@ app.layout = html.Div(
                                     ]
                                 ),
                                 html.Div(
+                                    className='div-for-hair-bar',
+                                    children=[
+                                        dcc.Graph(id="hair-bar",
+                                                  style={
+                                                      "text-align": "left",
+                                                      "width": "auto"
+                                                  }
+                                                  ),
+                                    ]
+                                ),
+                                html.Div(
                                     className='div-for-car-bar',
                                     children=[
                                         dcc.Graph(id="car-bar",
@@ -335,95 +379,18 @@ app.layout = html.Div(
                     ]
                 ),
         html.Div(
-            className='div-map',
+            # className="row",
             children=[
                 html.Div(
-                    className="live-map",
-                    #children=[html.Img(src=app.get_asset_url('eti_map.png'))],
-                    children=[html.Img()],
-                    style={"text-align": "center"}
-                ),
-                html.Div(
-                    className='div-id-collector',
+                    className="eight columns div-for-charts bg-grey",
                     children=[
-                        html.P(id="id-collector"),
-                    ],
-                    style={"text-align": "center"}
-                ),
+                        dcc.Graph(id="map-graph")
                     ],
                 ),
             ],
         )
-
-# def initial_map():
-#     zoom = 14.0
-#     latInitial = 34.83363
-#     lonInitial = -79.18255
-#     bearing = 0
-#     map = go.Figure(
-#             data=[
-#                 Scattermapbox(
-#                     lat=[important_locations[i]["lat"] for i in important_locations],
-#                     lon=[important_locations[i]["lon"] for i in important_locations],
-#                     mode="markers",
-#                     hoverinfo="text",
-#                     text=[i for i in important_locations],
-#                     marker=dict(size=8, color="#A91007", allowoverlap=True),
-#                 ),
-#             ],
-#             layout=Layout(
-#                 autosize=True,
-#                 margin=go.layout.Margin(l=0, r=35, t=0, b=0),
-#                 showlegend=False,
-#                 mapbox=dict(
-#                     accesstoken=mapbox_access_token,
-#                     center=dict(lat=latInitial, lon=lonInitial),  # ETI lat and long 34.83363, -79.18255
-#                     style="dark",
-#                     bearing=bearing,
-#                     zoom=zoom,
-#                 ),
-#                 updatemenus=[
-#                     dict(
-#                         buttons=(
-#                             [
-#                                 dict(
-#                                     args=[
-#                                         {
-#                                             # "mapbox.zoom": 12,
-#                                             "mapbox.center.lon": "-79.18255",
-#                                             "mapbox.center.lat": "34.83363",
-#                                             "mapbox.bearing": 0,
-#                                             "mapbox.style": "dark",
-#                                         }
-#                                     ],
-#                                     label="Reset Zoom",
-#                                     method="relayout",
-#                                 )
-#                             ]
-#                         ),
-#                         direction="left",
-#                         pad={"r": 0, "t": 0, "b": 0, "l": 0},
-#                         showactive=False,
-#                         type="buttons",
-#                         x=0.45,
-#                         y=0.02,
-#                         xanchor="left",
-#                         yanchor="bottom",
-#                         bgcolor="#323130",
-#                         borderwidth=1,
-#                         bordercolor="#6d6d6d",
-#                         font=dict(color="#FFFFFF"),
-#                     )
-#                 ],
-#             ),
-#         )
-#     return map
-
-# ready = input("Have you switched to local? Type yes or no? ")
-# if ready == 'yes':
-#     print('launching app')
-# if ready == 'no':
-#     print("cannot launch app")
+    ]
+)
 
 # @app.callback(
 #     [Output('btn-nclicks-1', 'n_clicks'), Output('gender-bar', 'clickData')],
@@ -445,8 +412,8 @@ app.layout = html.Div(
 #                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
 def count_per_hour(year, month, day):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     hour_of_detection = []
     detections_by_hour = []
     df4 = data_frame4(df1, df2)
@@ -529,8 +496,8 @@ def get_selection(year, month, day, selection):
 
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     total_detections = all_IDs(df1, df2)
     unique_detections = list(set(total_detections))
     unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
@@ -538,8 +505,8 @@ def update_total_detections(n):
 
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 def update_people_detections(n):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     people_ids = df2.id
     unique_ids = list(set(people_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -549,8 +516,8 @@ def update_people_detections(n):
 
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 def update_vehicle_detections(n):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     vehicle_ids = df1.id
     unique_ids = list(set(vehicle_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -688,8 +655,8 @@ def get_bar_color(domain):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     all_times_dates = extract_all_times(df1, df2)
     df4 = data_frame4(df1, df2)
     include_rows = []
@@ -717,7 +684,7 @@ def getLatLonColor(selectedData, month, day):
 def create_map_df(df_with_coords):
     if 'lat' in df_with_coords.columns:
         lats = list(df_with_coords["lat"])
-        longs = list(df_with_coords['long'])
+        longs = list(df_with_coords['lon'])
     else:
         lats = []
         longs = []
@@ -782,8 +749,8 @@ def map_filter(clickData):
     return person_feature
 
 def map_xval_yval():
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     # if clickData != None:
     #     person_feature = map_filter(clickData)
     #     #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
@@ -818,158 +785,105 @@ def map_xval_yval():
     veh_per_colors = vehicle_colors + person_colors
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
-map_pic = plt.imread('openstreet.png') #load back pic once
+def initial_map():
+    zoom = 14.0
+    latInitial = 34.83363
+    lonInitial = -79.18255
+    bearing = 0
+    map = go.Figure(
+        layout=Layout(
+            autosize=True,
+            margin=go.layout.Margin(l=0, r=35, t=0, b=0),
+            showlegend=False,
+            mapbox=dict(
+                accesstoken=mapbox_access_token,
+                center=dict(lat=latInitial, lon=lonInitial),  # ETI lat and long 34.83363, -79.18255
+                style="dark",
+                bearing=bearing,
+                zoom=zoom,
+            ),
+            updatemenus=[
+                dict(
+                    buttons=(
+                        [
+                            dict(
+                                args=[
+                                    {
+                                        # "mapbox.zoom": 12,
+                                        "mapbox.center.lon": "-79.18255",
+                                        "mapbox.center.lat": "34.83363",
+                                        "mapbox.bearing": 0,
+                                        "mapbox.style": "dark",
+                                    }
+                                ],
+                                label="Reset Zoom",
+                                method="relayout",
+                            )
+                        ]
+                    ),
+                    direction="left",
+                    pad={"r": 0, "t": 0, "b": 0, "l": 0},
+                    showactive=False,
+                    type="buttons",
+                    x=0.45,
+                    y=0.02,
+                    xanchor="left",
+                    yanchor="bottom",
+                    bgcolor="#323130",
+                    borderwidth=1,
+                    bordercolor="#6d6d6d",
+                    font=dict(color="#FFFFFF"),
+                )
+            ],
+        ),
+    )
+    return map
+
+map = initial_map() #In order to run off wifi, we only want the map token to be loaded once
+
 @app.callback(
-    [Output("id-collector", "children"), Output("live-map", "src")],
+    Output("map-graph", "figure"),
     [
         Input("interval-component", "n_intervals")
-    ]
+    ],
 )
 def update_graph(n):#date, time in string format, location
+
     df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
-    important_lat = [important_locations[i]["lat"] for i in important_locations]
-    important_lon = [important_locations[i]["lon"] for i in important_locations]
-    eti_lats = [34.83459512953768, 34.83480684650813, 34.83286712508545, 34.83309441422892]
-    eti_longs = [-79.18291931862396, -79.1822972311781, -79.18214550253276, -79.18136789322543]
-    veh_per_lats = [float(i) for i in veh_per_lats]
-    veh_per_longs = [float(i) for i in veh_per_longs]
-    # Make a plot
 
-    BBox = (-79.17789, -79.18631, 34.83597, 34.83219)  # OpenStreetMap longmin, longmax, latmin, latmax
+    return map.update(
+        data=[
+            Scattermapbox(
+                lat=[important_locations[i]["lat"] for i in important_locations],
+                lon=[important_locations[i]["lon"] for i in important_locations],
+                mode="markers",
+                hoverinfo="text",
+                text=[i for i in important_locations],
+                marker=dict(size=8, color="#A91007", allowoverlap=True),
+            ),
+            Scattermapbox(
+                lat=veh_per_lats,
+                lon=veh_per_longs,
+                mode="markers",
+                hoverinfo="lat+lon+text",
+                text=get_text(df1_new, df2_new),
+                marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
+            )
+        ])
 
-    fig, ax = plt.subplots(figsize=(12, 10.5))
-    ax.scatter(
-        x=important_lon,
-        y=important_lat,
-        zorder=1,
-        alpha=0.5,
-        c="#A91007",
-        s=10
-    )
-    ax.scatter(
-        x=eti_longs,
-        y=eti_lats,
-        zorder=1,
-        alpha=0.5,
-        c='#FFFFFF',
-        s=10
-    )
-    ax.scatter(
-        x=veh_per_longs,
-        y=veh_per_lats,
-        #text=get_text(df1_new, df2_new),
-        zorder=1,
-        alpha=0.5,
-        c='#000000',
-        s=10
-    )
-    ax.grid(True)
-    ax.set_facecolor(color='#000000')
-    ax.set_title('Live Detections')
-    ax.set_xlim(BBox[0], BBox[1])
-    ax.set_ylim(BBox[2], BBox[3])
-    ax.imshow(map_pic, zorder=0, extent=BBox, aspect='equal')
-    plt.savefig('assets/eti_map.png', bbox_inches='tight')
-
-    # Unique_ID = str(person_df['id'][-1:])
-    # Camera_id = str(person_df['camera'][-1:])
-    # distance = str(person_df['distance'][-1:])
-    return (('Map layout from OpenStreetMap'), app.get_asset_url('eti_map.png'))
-    # Export plot to plotly
-    #unique_url = py.plot_mpl(mpl_fig, filename="eti_map")
-
-    # available = test_server()
-    # if available is False:
-    #     fig = go.Figure()
-    #     return fig
-    # else:
-    #     df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
-    #     map = go.Figure(
-    #         data=[
-    #             Scattermapbox(
-    #                 lat=[important_locations[i]["lat"] for i in important_locations],
-    #                 lon=[important_locations[i]["lon"] for i in important_locations],
-    #                 mode="markers",
-    #                 hoverinfo="text",
-    #                 text=[i for i in important_locations],
-    #                 marker=dict(size=8, color="#A91007", allowoverlap=True),
-    #             ),
-    #             Scattermapbox(
-    #                 lat=veh_per_lats,
-    #                 lon=veh_per_longs,
-    #                 mode="markers",
-    #                 hoverinfo="lat+lon+text",
-    #                 text=get_text(df1_new, df2_new),
-    #                 marker=dict(size=5, color=veh_per_colors, allowoverlap=True)
-    #             )
-    #         ],
-    #         layout=Layout(
-    #             autosize=True,
-    #             margin=go.layout.Margin(l=0, r=35, t=0, b=0),
-    #             showlegend=False,
-    #             updatemenus=[
-    #                 dict(
-    #                     buttons=(
-    #                         [
-    #                             dict(
-    #                                 args=[
-    #                                     {
-    #                                         # "mapbox.zoom": 12,
-    #                                         "mapbox.center.lon": "-79.18255",
-    #                                         "mapbox.center.lat": "34.83363",
-    #                                         "mapbox.bearing": 0,
-    #                                         "mapbox.style": "dark",
-    #                                     }
-    #                                 ],
-    #                                 label="Reset Zoom",
-    #                                 method="relayout",
-    #                             )
-    #                         ]
-    #                     ),
-    #                     direction="left",
-    #                     pad={"r": 0, "t": 0, "b": 0, "l": 0},
-    #                     showactive=False,
-    #                     type="buttons",
-    #                     x=0.45,
-    #                     y=0.02,
-    #                     xanchor="left",
-    #                     yanchor="bottom",
-    #                     bgcolor="#323130",
-    #                     borderwidth=1,
-    #                     bordercolor="#6d6d6d",
-    #                     font=dict(color="#FFFFFF"),
-    #                 )
-    #             ],
-    #         ),
-    #     )
-    #     map.add_layout_image(
-    #         dict(
-    #             source=open("map.png", 'r'),
-    #             xref="lon",
-    #             yref="lat",
-    #             x=0,
-    #             y=3,
-    #             sizex=2,
-    #             sizey=2,
-    #             sizing="stretch",
-    #             opacity=0.5,
-    #             layer="below")
-    #     )
-    #     return map
-
-def percent_sex(people_df):
+def percent_sex(people_df): #change to total or add unknown
     if 'sex' in people_df.columns:
         count_f = 0
         count_m = 0
         count_u = 0
         gender_list = people_df['sex']
-        for gender in gender_list:
-            if gender == "female":
+        gender_wo_nan = [x for x in gender_list if pd.isnull(x) == False and x != 'nan']
+        for gender in gender_wo_nan:
+            if int(gender) == 0:
                 count_f += 1
-            elif gender == "male":
+            if int(gender) == 1:
                 count_m += 1
-            else:
-                count_u += 1
+        count_u = len(gender_list) - len(gender_wo_nan)
         percent_female = (count_f/len(gender_list)) * 100
         percent_male = (count_m/len(gender_list)) * 100
         percent_unknown = (count_u/len(gender_list)) * 100
@@ -983,8 +897,8 @@ def percent_sex(people_df):
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     percent_female, percent_male, percent_unknown = percent_sex(df2)
     percentages = [percent_female, percent_male, percent_unknown]
     sex = ["Female", "Male", "Unknown"]
@@ -1002,32 +916,38 @@ def update_sex_chart(n):
             )
         ))
 
-    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                       font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 
 def percent_car_color(vehicle_df):
-    paint_list = list(vehicle_df['paint'])
-    colors = list(set(paint_list))
-    colors_without_nan = [x for x in colors if pd.isnull(x) == False and x != 'nan']
-    percents = []
-    for color in colors_without_nan:
-        count = 0
-        for n in range(len(paint_list)):
-            if color == paint_list[n]:
-                count += 1
-        percent = (count/len(paint_list)) * 100
-        percents.append(percent)
+    if 'paint' in vehicle_df.columns:
+        paint_list = list(vehicle_df['paint'])
+        colors = list(set(paint_list))
+        colors_without_nan = [x for x in colors if pd.isnull(x) == False and x != 'nan']
+        percents = []
+        for color in colors_without_nan:
+            count = 0
+            for n in range(len(paint_list)):
+                if color == paint_list[n]:
+                    count += 1
+            percent = (count/len(paint_list)) * 100
+            percents.append(percent)
+    else:
+        percents = [0]
+        colors_without_nan = ['unknown']
+
     return percents, colors_without_nan
 
 @app.callback(
     Output("car-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
-    df1 = pd.read_csv('TrafficData_Rand.csv')
-    df2 = update_people_df()
+    update_vehicle_df(df1)
+    update_people_df(df2)
     percents, colors = percent_car_color(df1)
     graph_colors = px.colors.sequential.Viridis
+    percent_unknown = 100 - sum(percents)
     fig = go.Figure()
     for n in range(len(percents)):
         fig.add_trace(go.Bar(
@@ -1040,8 +960,71 @@ def update_car_bar(n):
                 line=dict(color='#FFFFFF', width=1)
             )
         ))
+        last_color = n + 1
+    fig.add_trace(go.Bar(
+        y=['vehicles '],
+        x=[percent_unknown],
+        name='unknown',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[last_color],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
 
-    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    return fig
+
+def clothes_totals(person_df, factor:str): #factor is an n-factor like "hat." It's column should be 0's and 1's
+    filtered_df = person_df[~person_df[factor].isnull()]
+    factor_list = [int(i) for i in filtered_df[factor]]
+    total_true = sum(factor_list)
+    total_false = len(factor_list) - total_true
+    total_unknown = len(person_df[factor]) - len(filtered_df)
+    return total_true, total_false, total_unknown #tells you total trues for each factor and total false
+
+@app.callback(
+    Output("hair-bar", "figure"),
+    Input("interval-component", "n_intervals"))
+def update_hair_bar(n):
+    update_vehicle_df(df1)
+    update_people_df(df2)
+    short_hair_count, long_hair_count, unknown = clothes_totals(df2, 'hair')
+    graph_colors = px.colors.sequential.Viridis
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=['hair'],
+        x=[short_hair_count],
+        name='short hair',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[2],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+    fig.add_trace(go.Bar(
+        y=['hair'],
+        x=[long_hair_count],
+        name='long hair',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[4],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+    fig.add_trace(go.Bar(
+        y=['hair'],
+        x=[unknown],
+        name='unknown',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[6],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                       font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 

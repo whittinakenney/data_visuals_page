@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import uuid
 
+from math import nan, isnan
 from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
@@ -245,6 +246,17 @@ app.layout = html.Div(
                                                 "width": "auto"
                                             }
                                         ),
+                                    ]
+                                ),
+                                html.Div(
+                                    className='div-for-hair-bar',
+                                    children=[
+                                        dcc.Graph(id="hair-bar",
+                                                  style={
+                                                      "text-align": "left",
+                                                      "width": "auto"
+                                                  }
+                                                  ),
                                     ]
                                 ),
                                 html.Div(
@@ -807,10 +819,6 @@ def percent_sex(people_df):
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    df1 = pd.read_csv(
-        "../uberProj/TrafficData_Rand.csv",
-        dtype=object,
-    )
     df2 = pd.read_csv(
         "../uberProj/Time_Location_Rand_People.csv",
         dtype=object,
@@ -837,7 +845,7 @@ def update_sex_chart(n):
             )
         ))
 
-    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                       font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 
@@ -879,7 +887,50 @@ def update_car_bar(n):
             )
         ))
 
-    fig.update_layout(barmode='stack', width=400, height=150, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    return fig
+
+def clothes_totals(person_df, factor:str): #factor is an n-factor like "hat." It's column should be 0's and 1's
+    filtered_df = person_df[~person_df[factor].isnull()]
+    factor_list = [int(i) for i in filtered_df[factor]]
+    total_true = sum(factor_list)
+    total_false = len(factor_list) - total_true
+    return total_true, total_false #tells you total trues for each factor and total false
+
+@app.callback(
+    Output("hair-bar", "figure"),
+    Input("interval-component", "n_intervals"))
+def update_hair_bar(n):
+    df2 = pd.read_csv(
+        "../uberProj/Time_Location_Rand_People.csv",
+        dtype=object,
+    )
+    short_hair_count, long_hair_count = clothes_totals(df2, 'hair')
+    graph_colors = px.colors.sequential.Viridis
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        y=['hair'],
+        x=[short_hair_count],
+        name='short hair',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[2],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+    fig.add_trace(go.Bar(
+        y=['hair'],
+        x=[long_hair_count],
+        name='long hair',
+        orientation='h',
+        marker=dict(
+            color=graph_colors[4],
+            line=dict(color='#FFFFFF', width=1)
+        )
+    ))
+
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                       font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 

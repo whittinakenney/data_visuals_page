@@ -22,15 +22,13 @@ class mongo_handler:
         collection = self.db["people"]
         return collection
 
-md = mongo_handler()
-cursor = md.get_people().find({})
-print(cursor)
-
 def create_people_df():
     md = mongo_handler()
-    cursor = md.get_people().find({})
+    cursor = list(md.get_people().find({}))
     initial_post = list(cursor[0].keys())
     rows = []
+    # for post in cursor:
+    #     print(post['id'])
     for post in cursor:
         if len(list(post.keys())) > len(initial_post):
             columns = list(post.keys())
@@ -38,10 +36,10 @@ def create_people_df():
             columns = initial_post
         row = post.values()
         rows.append(row)
-    #columns = np.unique(columns)
-    people_df = pd.DataFrame(columns=columns)
-    for i in range(len(rows)):
-        people_df.loc[i] = rows[i]
+    people_df = pd.DataFrame(rows, columns=columns)
+    print(people_df)
+    # for i in range(len(rows)):
+    #     people_df.loc[i] = rows[i]
     return people_df
 df = create_people_df()
 

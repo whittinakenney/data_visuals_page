@@ -76,12 +76,19 @@ a {
 }
 .div-for-gender-bar {
   width: 100%;
+  text-align: left;\
+  padding-left: 2px;
+}
+.div-for-hair-bar {
+  width: 100%;
   text-align: left;
+  padding-top: 40px;
+  padding-left: 20px;
 }
 .div-for-car-bar {
   width: 100%;
   text-align: left;
-  padding-top: 75px;
+  padding-top: 40px;
   padding-left: 0px;
 }
 .div-clear-button {

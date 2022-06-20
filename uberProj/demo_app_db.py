@@ -993,42 +993,56 @@ def clothes_totals(person_df, factor:str): #factor is an n-factor like "hat." It
     Input("interval-component", "n_intervals"))
 def update_hair_bar(n):
     df2 = update_person_df()
-    short_hair_count, long_hair_count, unknown = clothes_totals(df2, 'hair')
-    graph_colors = px.colors.sequential.Viridis
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=['hair'],
-        x=[short_hair_count],
-        name='short hair',
-        orientation='h',
-        marker=dict(
-            color=graph_colors[2],
-            line=dict(color='#FFFFFF', width=1)
-        )
-    ))
-    fig.add_trace(go.Bar(
-        y=['hair'],
-        x=[long_hair_count],
-        name='long hair',
-        orientation='h',
-        marker=dict(
-            color=graph_colors[4],
-            line=dict(color='#FFFFFF', width=1)
-        )
-    ))
-    fig.add_trace(go.Bar(
-        y=['hair'],
-        x=[unknown],
-        name='unknown',
-        orientation='h',
-        marker=dict(
-            color=graph_colors[6],
-            line=dict(color='#FFFFFF', width=1)
-        )
-    ))
-
-    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                      font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
+    if 'hair' in df2.columns:
+        short_hair_count, long_hair_count, unknown = clothes_totals(df2, 'hair')
+        graph_colors = px.colors.sequential.Viridis
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=['hair'],
+            x=[short_hair_count],
+            name='short hair',
+            orientation='h',
+            marker=dict(
+                color=graph_colors[2],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
+        fig.add_trace(go.Bar(
+            y=['hair'],
+            x=[long_hair_count],
+            name='long hair',
+            orientation='h',
+            marker=dict(
+                color=graph_colors[4],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
+        fig.add_trace(go.Bar(
+            y=['hair'],
+            x=[unknown],
+            name='unknown',
+            orientation='h',
+            marker=dict(
+                color=graph_colors[6],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
+    else:
+        graph_colors = px.colors.sequential.Viridis
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=['hair'],
+            x=[1],
+            name='no people detected',
+            orientation='h',
+            marker=dict(
+                color=graph_colors[6],
+                line=dict(color='#FFFFFF', width=1)
+            )
+        ))
+    fig.update_layout(barmode='stack', width=350, height=100, plot_bgcolor='rgba(0,0,0,0)',
+                          paper_bgcolor='rgba(0,0,0,0)',
+                          font_color='#FFFFFF', margin=dict(l=0, r=20, t=20, b=20))
     return fig
 
 if __name__ == "__main__":

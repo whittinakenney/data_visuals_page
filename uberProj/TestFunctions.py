@@ -20,4 +20,8 @@ df3 = pd.read_csv(
 paint_list = ['orange', 'null']
 colors = list(set(paint_list))
 colors.remove('null')
-print(colors)
+
+columns = ['_id', 'id', 'color', 'lat', 'lon', 'label', 'postprocess']
+vehicle_df = pd.DataFrame(columns=columns)
+print(vehicle_df)
+print(len(vehicle_df))

@@ -71,88 +71,99 @@ class mongo_handler:
 
 def create_vehicle_df():
     md = mongo_handler()
-    cursor = list(md.get_vehicles().find({}))
-    initial_post = list(cursor[0].keys())
-    rows = []
-    # for post in cursor:
-    #     print(post['id'])
-    for post in cursor:
-        if len(list(post.keys())) > len(initial_post):
-            columns = list(post.keys())
-        else:
-            columns = initial_post
-        row = post.values()
-        rows.append(row)
-    vehicle_df = pd.DataFrame(rows, columns=columns)
-    # for i in range(len(rows)):
-    #     people_df.loc[i] = rows[i]
+    try:
+        cursor = list(md.get_vehicles().find({}))
+        initial_post = list(cursor[0].keys())
+        rows = []
+        # for post in cursor:
+        #     print(post['id'])
+        for post in cursor:
+            if len(list(post.keys())) > len(initial_post):
+                columns = list(post.keys())
+            else:
+                columns = initial_post
+            row = post.values()
+            rows.append(row)
+        vehicle_df = pd.DataFrame(rows, columns=columns)
+    except IndexError:
+        columns = ['_id', 'id', 'color', 'lat', 'lon', 'label', 'postprocess']
+        vehicle_df = pd.DataFrame(columns=columns)
     return vehicle_df
-
-df1 = create_vehicle_df()
 
 def create_people_df():
     md = mongo_handler()
-    cursor = list(md.get_people().find({}))
-    initial_post = list(cursor[0].keys())
-    rows = []
-    # for post in cursor:
-    #     print(post['id'])
-    for post in cursor:
-        if len(list(post.keys())) > len(initial_post):
-            columns = list(post.keys())
-        else:
-            columns = initial_post
-        row = post.values()
-        rows.append(row)
-    people_df = pd.DataFrame(rows, columns=columns)
-    # for i in range(len(rows)):
-    #     people_df.loc[i] = rows[i]
+    try:
+        cursor = list(md.get_people().find({}))
+        initial_post = list(cursor[0].keys())
+        rows = []
+        # for post in cursor:
+        #     print(post['id'])
+        for post in cursor:
+            if len(list(post.keys())) > len(initial_post):
+                columns = list(post.keys())
+            else:
+                columns = initial_post
+            row = post.values()
+            rows.append(row)
+        people_df = pd.DataFrame(rows, columns=columns)
+    except IndexError:
+        columns = ['_id', 'id', 'color', 'lat', 'lon', 'label', 'postprocess']
+        people_df = pd.DataFrame(columns=columns)
     return people_df
 
-df2 = create_people_df() #the first time code loads, it will fill entire dataframe, but then will only update
-#for the rest of runtime
+def update_vehicle_df():
+    df1 = create_vehicle_df()
+    return df1
 
+def update_person_df():
+    df2 = create_people_df()
+    return df2
 ##searches for new posts in vehicles collection and adds them to dataframe
 ##checks for updates to postprocessing, if something has been post-processed, it
 ##deletes the original row and adds the post-processed row
-def update_vehicle_df(df1):
-    md = mongo_handler()
-    cursor = md.get_vehicles().find({}) #gets all posts in the collection
-    df1_post_ids = list(df1['_id']) #makes list of post id's already in df
-    post_ids_preprocess = list(df1.loc[df1['postprocess'] == False, '_id']) #gets those in current df1 that are -
-    #post-processed
-    last_row_index = len(df1_post_ids)
-    for post in cursor:
-        if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
-            #if those in dataframe that are false for post-processing, share a post id with posts
-            #in the database, but the post is true for post-processing...
-            df1.drop(df1.index[df1['_id'] == post['_id']]) #we drop the old one from the df
-            df1.loc[last_row_index] = post.values() #then add the newly post-processed row to replace it
-            last_row_index += 1
-    for post in cursor: #if there's a post with a post id that is not already in our df, we add it
-        if post['_id'] not in df1_post_ids:
-            df1.loc[last_row_index] = post.values()
-            last_row_index += 1
-    return df1
-
-##this function is the same as the one above, but for the vehicle collection
-def update_people_df(df2):
-    md = mongo_handler()
-    cursor = md.get_people().find({})
-    df2_post_ids = list(df2['_id'])
-    post_ids_preprocess = list(df2.loc[df2['postprocess'] == False, '_id'])
-    last_row_index = len(df2_post_ids)
-    for post in cursor:
-        if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
-            df2.drop(df2.index[df2['_id'] == post['_id']])
-            df2.loc[last_row_index] = post.values()
-            last_row_index += 1
-    for post in cursor:
-        if post['_id'] not in df2_post_ids:
-            df2.loc[last_row_index] = post.values()
-            last_row_index += 1
-    return df2
-
+# def update_vehicle_df(df1):
+#     if len(df1) == 0:
+#         df1 = create_vehicle_df()
+#     md = mongo_handler()
+#     cursor = md.get_vehicles().find({}) #gets all posts in the collection
+#     df1_post_ids = list(df1['_id']) #makes list of post id's already in df
+#     post_ids_preprocess = list(df1.loc[df1['postprocess'] == False, '_id']) #gets those in current df1 that are -
+#     #post-processed
+#     last_row_index = len(df1_post_ids)
+#     for post in cursor:
+#         if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
+#             #if those in dataframe that are false for post-processing, share a post id with posts
+#             #in the database, but the post is true for post-processing...
+#             df1.drop(df1.index[df1['_id'] == post['_id']]) #we drop the old one from the df
+#             df1.append(post, ignore_index=True)
+#     cursor = md.get_vehicles().find({})
+#     for post in cursor: #if there's a post with a post id that is not already in our df, we add it
+#         if post['_id'] not in df1_post_ids:
+#             df1.append(post, ignore_index=True)
+#             # df1.loc[last_row_index] = post.values()
+#             # last_row_index += 1
+#     print(df1)
+#     return df1
+# ##this function is the same as the one above, but for the vehicle collection
+# def update_people_df(df2):
+#     if len(df2) == 0:
+#         df2 = create_vehicle_df()
+#     md = mongo_handler()
+#     cursor = md.get_people().find({})
+#     df2_post_ids = list(df2['_id'])
+#     post_ids_preprocess = list(df2.loc[df2['postprocess'] == False, '_id'])
+#     last_row_index = len(df2_post_ids)
+#     for post in cursor:
+#         if post['postprocess'] in post_ids_preprocess and post['postprocess'] == True:
+#             df2.drop(df2.index[df2['_id'] == post['_id']])
+#             df2.append(post, ignore_index=True)
+#     cursor = md.get_people().find({})
+#     for post in cursor:
+#         if post['_id'] not in df2_post_ids:
+#             df2.append(post, ignore_index=True)
+#             # df2.loc[last_row_index] = post.values()
+#             # last_row_index += 1
+#     return df2
 
 #returns list of veicle and person times
 def extract_all_times(df1, df2):
@@ -412,8 +423,6 @@ app.layout = html.Div(
 #                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
 def count_per_hour(year, month, day):
-    update_vehicle_df(df1)
-    update_people_df(df2)
     hour_of_detection = []
     detections_by_hour = []
     df4 = data_frame4(df1, df2)
@@ -496,8 +505,8 @@ def get_selection(year, month, day, selection):
 
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df1 = update_vehicle_df()
+    df2 = update_person_df()
     total_detections = all_IDs(df1, df2)
     unique_detections = list(set(total_detections))
     unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
@@ -505,8 +514,7 @@ def update_total_detections(n):
 
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 def update_people_detections(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df2 = update_person_df()
     people_ids = df2.id
     unique_ids = list(set(people_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -516,8 +524,7 @@ def update_people_detections(n):
 
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 def update_vehicle_detections(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df1 = update_vehicle_df()
     vehicle_ids = df1.id
     unique_ids = list(set(vehicle_ids))
     unique_ids_without_nan = [x for x in unique_ids if pd.isnull(x) == False and x != 'nan']
@@ -655,8 +662,8 @@ def get_bar_color(domain):
 #that correspond to that specific date and time. Time is the index.
 
 def getLatLonColor(selectedData, month, day):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df1 = update_vehicle_df()
+    df2 = update_person_df()
     all_times_dates = extract_all_times(df1, df2)
     df4 = data_frame4(df1, df2)
     include_rows = []
@@ -749,8 +756,8 @@ def map_filter(clickData):
     return person_feature
 
 def map_xval_yval():
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df1 = update_vehicle_df()
+    df2 = update_person_df()
     # if clickData != None:
     #     person_feature = map_filter(clickData)
     #     #df1_by_feat = df1.loc[df1[vehicle_feature] == 'TRUE']
@@ -848,7 +855,6 @@ map = initial_map() #In order to run off wifi, we only want the map token to be 
     ],
 )
 def update_graph(n):#date, time in string format, location
-
     df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors = map_xval_yval()
 
     return map.update(
@@ -897,8 +903,7 @@ def percent_sex(people_df): #change to total or add unknown
     Output("gender-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_sex_chart(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df2 = update_person_df()
     percent_female, percent_male, percent_unknown = percent_sex(df2)
     percentages = [percent_female, percent_male, percent_unknown]
     sex = ["Female", "Male", "Unknown"]
@@ -943,8 +948,7 @@ def percent_car_color(vehicle_df):
     Output("car-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_car_bar(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df1 = update_vehicle_df()
     percents, colors = percent_car_color(df1)
     graph_colors = px.colors.sequential.Viridis
     percent_unknown = 100 - sum(percents)
@@ -988,8 +992,7 @@ def clothes_totals(person_df, factor:str): #factor is an n-factor like "hat." It
     Output("hair-bar", "figure"),
     Input("interval-component", "n_intervals"))
 def update_hair_bar(n):
-    update_vehicle_df(df1)
-    update_people_df(df2)
+    df2 = update_person_df()
     short_hair_count, long_hair_count, unknown = clothes_totals(df2, 'hair')
     graph_colors = px.colors.sequential.Viridis
     fig = go.Figure()

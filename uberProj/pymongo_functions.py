@@ -56,8 +56,9 @@ def update_people_df(df):
             last_row_index += 1
     for post in cursor:
         if post['_id'] not in df_post_ids:
-            df.loc[last_row_index] = post.values()
-            last_row_index += 1
+            pd.concat(df, post)
+            # df.loc[last_row_index] = post.values()
+            # last_row_index += 1
     return df
 print(update_people_df(df))
 

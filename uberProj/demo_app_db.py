@@ -1,17 +1,10 @@
-import os
-
 import dash
 from dash import dcc
 from dash import html
 import pandas as pd
 import numpy as np
 import uuid
-import pymongo
-import matplotlib.pyplot as plt
-import flask
 
-from math import nan, isnan
-from dash import dash_table
 from dash.dependencies import Input, Output
 from plotly import graph_objs as go
 from plotly.graph_objs import *
@@ -20,10 +13,6 @@ import dash_daq as daq
 import dash_bootstrap_components as dbc
 import plotly.express as px
 from pymongo import MongoClient
-import json
-
-
-##must manually add x-values (i.e. "FEMALE") in update_histogram_live
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}],
@@ -32,7 +21,7 @@ app.title = "Person Identification and Plate Identification"
 server = app.server
 
 
-# Plotly mapbox public token
+# Plotly mapbox public token. This loads the map interface
 mapbox_access_token = "pk.eyJ1Ijoid2hpdHRpbmFrZW5uZXkiLCJhIjoiY2wzbmRrbWR6MGRpZTNrbXU1OTN4NmJnYyJ9.GRJfLp1eHrnerFrpDqpzAw"
 
 #important locations
@@ -42,25 +31,24 @@ important_locations = {
 }
 
 class mongo_handler:
+    ##below is the IOT local server MongoDB
     # def __init__(self):
     #     self.client = MongoClient('192.168.50.115', 27017)
     #     self.db = self.client['detections']
+    ##below is the test MongoDB
     def __init__(self):
         self.client = MongoClient('45.79.221.195', 27017)
         self.db = self.client['detections']
 
-    # def dataframe_to_dict(self, post):
-    #     dataframe = post.to_dict(orient='split')
-    #     return dataframe
-
-    def get_vehicles(self):
+    def get_vehicles(self): #creates a collection which the vehicle identifications will be added to as posts
         collection = self.db["vehicles"]
         return collection
 
-    def get_people(self):
+    def get_people(self): #creates a collection which the people identifications will be added to as posts
         collection = self.db["people"]
         return collection
 
+##test_server() allows you to check if you're connected to the server. Used mostl for the local server.
 # def test_server():
 #     md = mongo_handler()
 #     try:
@@ -69,6 +57,7 @@ class mongo_handler:
 #         print('not connected')
 #         return False
 
+#create_vehicle_df() takes the posts from the vehicle collection in the db and puts them into a dataframe
 def create_vehicle_df():
     md = mongo_handler()
     try:
@@ -90,6 +79,7 @@ def create_vehicle_df():
         vehicle_df = pd.DataFrame(columns=columns)
     return vehicle_df
 
+#create_people_df() takes the posts from the people collection in the db and puts them into a dataframe
 def create_people_df():
     md = mongo_handler()
     try:
@@ -111,6 +101,8 @@ def create_people_df():
         people_df = pd.DataFrame(columns=columns)
     return people_df
 
+##update_vehicle_df and update_person_df recreate the vehicle and person dataframes in order to catch new
+#posts and updated posts in the database.
 def update_vehicle_df():
     df1 = create_vehicle_df()
     return df1
@@ -118,6 +110,12 @@ def update_vehicle_df():
 def update_person_df():
     df2 = create_people_df()
     return df2
+
+
+#the below was a first attempt at updating the datafram
+#However, it required checking every post in the database in order to search for new and updated posts.
+#We instead replace the dataframe entirely each time the update functions are run.
+
 ##searches for new posts in vehicles collection and adds them to dataframe
 ##checks for updates to postprocessing, if something has been post-processed, it
 ##deletes the original row and adds the post-processed row
@@ -165,7 +163,7 @@ def update_person_df():
 #             # last_row_index += 1
 #     return df2
 
-#returns list of veicle and person times
+#returns list of veicle and person times which is useful for adding interactivity that filters data by time
 def extract_all_times(df1, df2):
     vehicle_times = list(df1["time"])
     person_times = list(df2["time"])
@@ -220,6 +218,8 @@ def lats_long(df1, df2):
     return(Vehicle_Lat_Long, People_Lat_Long, Vehicle_People_Lats,
            Vehicle_People_Longs, Unique_Vehicle_Locations, Unique_People_Locations)
 
+#gives each unique location in the database a unique ID
+#appends the ID and location to a dictionary which it returns
 def dict_of_locations(df1, df2):
     (Vehicle_Lat_Long, People_Lat_Long, Vehicle_People_Lats,
     Vehicle_People_Longs, Unique_Vehicle_Locations,
@@ -252,7 +252,7 @@ def assign_color_label(row):
         color = "#8607A9"
         return color
 
-##Creating datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL, COLOR
+##Creates datafram with person and vehicles which will include ID, TIME in standard format, LAT, LONG, LABEL, COLOR
 def data_frame4(df1, df2): ###more to be done
     (Vehicle_Lat_Long, People_Lat_Long, Vehicle_People_Lats,
     Vehicle_People_Longs, Unique_Vehicle_Locations,
@@ -290,14 +290,17 @@ def data_frame4(df1, df2): ###more to be done
 # Layout of Dash App
 app.layout = html.Div(
     children=[
+        #creates an interval compnenet which is used to update certain code every n intervals
         html.Div(id='live-update-csv'),
         dcc.Interval(
         id='interval-component',
         interval=2*1000,# in milliseconds
         n_intervals=0),
+        #creates left column for bar graphs and counters
         html.Div(
                 className="four columns div-user-controls",
                 children=[
+                    #adds dash logo above all visuals
                     html.A(
                             html.Img(
                                 className="logo",
@@ -305,6 +308,7 @@ app.layout = html.Div(
                             ),
                             href="https://plotly.com/dash/",
                         ),
+                    #layout for total unique detection counter
                     html.Div(
                         className='div-for-LED',
                         children=[
@@ -389,6 +393,7 @@ app.layout = html.Div(
                     # )
                     ]
                 ),
+        #making layout for map
         html.Div(
             # className="row",
             children=[
@@ -403,6 +408,8 @@ app.layout = html.Div(
     ]
 )
 
+##wanted a botton which would reset the clickData
+##saved here for later use when interactivity is added
 # @app.callback(
 #     [Output('btn-nclicks-1', 'n_clicks'), Output('gender-bar', 'clickData')],
 #     [Input('btn-nclicks-1', 'n_clicks'), Input('gender-bar', 'clickData')]
@@ -422,6 +429,8 @@ app.layout = html.Div(
 # monthIndex = pd.Index(["Jan", "Feb", "Mar", "Apr", "May",
 #                        "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"])
 
+##count_per_hour takes the year, month, and day and creates a list of counts
+#each count is the list is how many detections were at that hour on that day
 def count_per_hour(year, month, day):
     hour_of_detection = []
     detections_by_hour = []
@@ -438,71 +447,7 @@ def count_per_hour(year, month, day):
         detections_by_hour.append(hour_of_detection.count(p))
     return detections_by_hour
 
-def get_selection(year, month, day, selection):
-    xVal = []
-    yVal = []
-    xSelected = []
-    colorVal = [
-        "#F4EC15",
-        "#DAF017",
-        "#BBEC19",
-        "#9DE81B",
-        "#80E41D",
-        "#66E01F",
-        "#4CDC20",
-        "#34D822",
-        "#24D249",
-        "#25D042",
-        "#26CC58",
-        "#28C86D",
-        "#29C481",
-        "#2AC093",
-        "#2BBCA4",
-        "#2BB5B8",
-        "#2C99B4",
-        "#2D7EB0",
-        "#2D65AC",
-        "#2E4EA4",
-        "#2E38A4",
-        "#3B2FA0",
-        "#4E2F9C",
-        "#603099",
-    ]
-
-    # Put selected times into a list of numbers xSelected
-    xSelected.extend([int(x) for x in selection])
-
-    for i in range(24):
-        # If bar is selected then color it white
-        if i in xSelected and len(xSelected) < 24:
-            colorVal[i] = "#FFFFFF"
-        xVal.append(i)
-        # Get the number of people and plates at a particular time
-        yVal = count_per_hour(year, month, day)
-    return [np.array(xVal), np.array(yVal), np.array(colorVal)]
-
-#Selected Data in the Histogram updates map
-# @app.callback(
-#     Output("bar-selector", "value"),
-#     [Input("histogram", "selectedData"), Input("histogram", "clickData")]
-# )
-# def update_bar_selector(value, clickData):
-#     holder = []
-#     if clickData:
-#         holder.append(str(int(clickData["points"][0]["x"])))
-#     if value:
-#         for x in value["points"]:
-#             holder.append(str(int(x["x"])))
-#     return list(set(holder))
-
-
-# Clear Selected Data if Click Data is used
-# @app.callback(Output("histogram", "selectedData"), [Input("histogram", "clickData")])
-# def update_selected_data(clickData):
-#     if clickData:
-#         return {"points": []}
-
-
+#the led display that counts number of unique detections in both the vehicle and people collections
 @app.callback(Output("rul-estimation-indicator-led", "value"), Input("interval-component", "n_intervals"))
 def update_total_detections(n):
     df1 = update_vehicle_df()
@@ -512,6 +457,7 @@ def update_total_detections(n):
     unique_det_without_nan = [x for x in unique_detections if pd.isnull(x) == False and x != 'nan']
     return len(unique_det_without_nan)
 
+#under led display, this counts number of unique detections that are person detections
 @app.callback(Output("total-people-detections", "children"), Input("interval-component", "n_intervals"))
 def update_people_detections(n):
     df2 = update_person_df()
@@ -522,6 +468,7 @@ def update_people_detections(n):
         len(unique_ids_without_nan)
     )
 
+#under led display, this counts number of unique detections that are vehicle detections
 @app.callback(Output("total-vehicle-detections", "children"), Input("interval-component", "n_intervals"))
 def update_vehicle_detections(n):
     df1 = update_vehicle_df()
@@ -532,6 +479,11 @@ def update_vehicle_detections(n):
         len(unique_ids_without_nan)
     )
 
+#item_counter requires a dataframe and a list of items.
+#For example, a list of items may be ['long_sleeves', 'male']
+#counts how many trues are in the dataframe column of each item in the domain
+#For example, if there are 2 people in the database wearing long sleeves and 5 males
+#this will return [2, 5]
 def item_counter(dataFrame, domain):
     item_counter = []
     for item in domain:
@@ -542,125 +494,8 @@ def item_counter(dataFrame, domain):
         item_counter.append(count)
     return(item_counter)
 
-def get_bar_color(domain):
-    colors = [
-        "#F4EC15",
-        "#DAF017",
-        "#BBEC19",
-        "#9DE81B",
-        "#80E41D",
-        "#66E01F",
-        "#4CDC20",
-        "#34D822",
-        "#24D249",
-        "#25D042",
-        "#26CC58",
-        "#28C86D",
-        "#29C481",
-        "#2AC093",
-        "#2BBCA4",
-        "#2BB5B8",
-        "#2C99B4",
-        "#2D7EB0",
-        "#2D65AC",
-        "#2E4EA4",
-        "#2E38A4",
-        "#3B2FA0",
-        "#4E2F9C",
-        "#603099",
-    ]
-    colorVal = []
-    # for n in range(len(domain)):
-    #     if clickData != None:
-    #         selectedFeature = clickData["points"][0]["x"]
-    #     else:
-    #         selectedFeature = None
-    #     if domain[n] == selectedFeature:
-    #         colorVal.append("#FFFFFF")
-    #     else:
-    #         colorVal.append(colors[n])
-    return colorVal
-
-# @app.callback(
-#     Output("histogram", "figure"),
-#     [Input("interval-component", "n_intervals")]
-# )
-# def update_histogram_live(n):
-#     # date_picked = dt.strptime(datePicked, "%Y-%m-%d")
-#     # monthPicked = date_picked.month #- 4
-#     # dayPicked = date_picked.day #- 1
-#     # yearPicked = date_picked.year
-#     #[xVal, yVal, colorVal] = get_selection(yearPicked, monthPicked, dayPicked, value)
-#
-#     df2 = pd.read_csv(
-#         "Time_Location_Rand_People.csv",
-#         dtype=object,
-#     )
-#
-#     xVal = ['LONG_SLEEVE', 'SHORT_SLEEVE', 'SHORTS', 'PANTS', 'HAT', 'FEMALE', 'MALE']
-#     yVal = np.array(item_counter(df2, xVal))
-#     colorVal = np.array(get_bar_color(xVal))
-#
-#
-#     layout = go.Layout(
-#         bargap=0.05,
-#         bargroupgap=0,
-#         barmode="group",
-#         margin=go.layout.Margin(l=10, r=0, t=0, b=50),
-#         showlegend=False,
-#         plot_bgcolor="#323130",
-#         paper_bgcolor="#323130",
-#         dragmode="select",
-#         font=dict(color="white"),
-#         xaxis=dict(
-#             range=[-1, len(xVal)],
-#             showgrid=False,
-#             nticks=25,
-#             fixedrange=True,
-#             ticksuffix="",
-#         ),
-#         yaxis=dict(
-#             range=[0, max(yVal)+10],
-#             showticklabels=False,
-#             showgrid=False,
-#             fixedrange=True,
-#             rangemode="nonnegative",
-#             zeroline=False,
-#         ),
-#         annotations=[
-#             dict(
-#                 x=xi,
-#                 y=yi,
-#                 text=str(yi),
-#                 xanchor="center",
-#                 yanchor="bottom",
-#                 showarrow=False,
-#                 font=dict(color="white"),
-#             )
-#             for xi, yi in zip(xVal, yVal)
-#         ],
-#     )
-#
-#     return go.Figure(
-#         data=[
-#             go.Bar(x=xVal, y=yVal, marker=dict(color=colorVal), hoverinfo="x"),
-#             go.Scatter(
-#                 opacity=0,
-#                 x=xVal,
-#                 y=yVal / 2,
-#                 hoverinfo="none",
-#                 mode="markers",
-#                 marker=dict(color="rgb(66, 134, 244, 0)", symbol="square", size=40),
-#                 visible=True,
-#             ),
-#         ],
-#         layout=layout,
-#     )
-
-
 #Given date and time, this function will return a database with the ID, TIME, LAT, LONG, and LABEL
 #that correspond to that specific date and time. Time is the index.
-
 def getLatLonColor(selectedData, month, day):
     df1 = update_vehicle_df()
     df2 = update_person_df()
@@ -687,7 +522,14 @@ def getLatLonColor(selectedData, month, day):
     if len(selectedData) != 0:
         return listCoords_byHours
 
-#function that creates df5
+#create_map_df creates a unique dataframe that is used for the map
+#it finds all the unique locations in the database
+#it finds all the detections at each of those unique locations
+#it counts how many detections are at each unique locations
+#it creates a list of all the IDs at each unique location
+#it assigns a color whether the detection at a unique location is a person, vehicle,
+# or several detections at the same location
+#all this information is then stored in df5 which it returns
 def create_map_df(df_with_coords):
     if 'lat' in df_with_coords.columns:
         lats = list(df_with_coords["lat"])
@@ -700,7 +542,7 @@ def create_map_df(df_with_coords):
     list_ID_list = [] #creates df5 IDs column
     list_labels_lists = [] #creates labels column in df5
     colors = [] #creates colors column of df5
-    lats_longs = list(set(tuple(zip(lats, longs))))
+    lats_longs = list(set(tuple(zip(lats, longs))))#takes only unique lat, lon combinations
     unique_lats = []
     unique_longs = []
     for n in range(len(lats_longs)):
@@ -739,6 +581,7 @@ def create_map_df(df_with_coords):
         )
     return df5
 
+#get_text creates the hover texts for points on the map
 def get_text(map_df1, map_df2):
     all_labels = list(map_df1.labels) + list(map_df2.labels)
     Unique_IDs = list(map_df1.id) + list(map_df2.id)
@@ -751,9 +594,10 @@ def get_text(map_df1, map_df2):
             text.append((total_detections[n], Unique_IDs[n]))
     return text
 
-def map_filter(clickData):
-    person_feature = clickData["points"][0]["x"]
-    return person_feature
+##used when interactivity is added
+# def map_filter(clickData):
+#     person_feature = clickData["points"][0]["x"]
+#     return person_feature
 
 def map_xval_yval():
     df1 = update_vehicle_df()
@@ -1031,9 +875,9 @@ def update_hair_bar(n):
         graph_colors = px.colors.sequential.Viridis
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            y=['hair'],
+            y=['N/A'],
             x=[1],
-            name='no people detected',
+            name='hair',
             orientation='h',
             marker=dict(
                 color=graph_colors[6],

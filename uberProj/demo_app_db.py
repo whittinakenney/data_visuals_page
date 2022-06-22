@@ -637,7 +637,7 @@ def map_xval_yval():
     return df1_new, df2_new, veh_per_lats, veh_per_longs, veh_per_colors
 
 def initial_map():
-    zoom = 14.0
+    zoom = 16.5
     latInitial = 34.83363
     lonInitial = -79.18255
     bearing = 0
@@ -750,7 +750,7 @@ def update_sex_chart(n):
     df2 = update_person_df()
     percent_female, percent_male, percent_unknown = percent_sex(df2)
     percentages = [percent_female, percent_male, percent_unknown]
-    sex = ["Female", "Male", "Unknown"]
+    sex = ["female", "male", "unknown"]
     graph_colors = px.colors.sequential.Viridis
     fig = go.Figure()
     for n in range(len(sex)):
@@ -842,7 +842,7 @@ def update_hair_bar(n):
         graph_colors = px.colors.sequential.Viridis
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            y=['hair'],
+            y=['hair '],
             x=[short_hair_count],
             name='short hair',
             orientation='h',
@@ -852,7 +852,7 @@ def update_hair_bar(n):
             )
         ))
         fig.add_trace(go.Bar(
-            y=['hair'],
+            y=['hair '],
             x=[long_hair_count],
             name='long hair',
             orientation='h',
@@ -862,7 +862,7 @@ def update_hair_bar(n):
             )
         ))
         fig.add_trace(go.Bar(
-            y=['hair'],
+            y=['hair '],
             x=[unknown],
             name='unknown',
             orientation='h',
@@ -875,7 +875,7 @@ def update_hair_bar(n):
         graph_colors = px.colors.sequential.Viridis
         fig = go.Figure()
         fig.add_trace(go.Bar(
-            y=['N/A'],
+            y=['N/A '],
             x=[1],
             name='hair',
             orientation='h',

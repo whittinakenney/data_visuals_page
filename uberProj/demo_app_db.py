@@ -30,14 +30,38 @@ important_locations = {
     "14442C1031A059D700": {"lat": 34.83358, "lon": -79.18238}
 }
 
-class mongo_handler:
+#the following lines, 35-54 collect the database's IP address from the user
+
+def run_once(f):
+    def wrapper(*args, **kwargs):
+        if not wrapper.has_run:
+            wrapper.has_run = True
+            return f(*args, **kwargs)
+    wrapper.has_run = False
+    return wrapper
+
+@run_once
+def get_IP():
+    global new_IP
+    change_ip_yes_no = input("Would you like to change the database's IP address? Type yes or no: ")
+    print(change_ip_yes_no)
+    if change_ip_yes_no == 'yes' or change_ip_yes_no == "Yes" or change_ip_yes_no == 'YES':
+        new_IP = str(input("What is the IP address of your MongoDB? "))
+        print(new_IP)
+    else:
+        new_IP = '45.79.221.195'
+    print("The IP address of the database is set to: ", new_IP)
+
+get_IP()
+
+class mongo_handler():
     ##below is the IOT local server MongoDB
     # def __init__(self):
     #     self.client = MongoClient('192.168.50.115', 27017)
     #     self.db = self.client['detections']
     ##below is the test MongoDB
     def __init__(self):
-        self.client = MongoClient('45.79.221.195', 27017)
+        self.client = MongoClient(new_IP, 27017)
         self.db = self.client['detections']
 
     def get_vehicles(self): #creates a collection which the vehicle identifications will be added to as posts
